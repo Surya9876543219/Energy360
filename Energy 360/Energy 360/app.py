@@ -36,7 +36,7 @@ div[data-testid="column"]:has(.sidebar-brand) [data-testid="stCaption"]{color:#B
 .hero-subtitle{color:#E1EDF5;font-size:.92rem;margin-top:7px}
 .filter-bar{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:9px 14px;margin:0 16px 17px;box-shadow:0 2px 10px rgba(22,55,82,.035)}
 .filter-heading{font-weight:800;color:#183B59;font-size:.95rem;padding-top:7px;white-space:nowrap}
-div[data-testid="stVerticalBlock"]:has(.filter-heading){background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:9px 14px;margin:0 16px 17px;box-shadow:0 2px 10px rgba(22,55,82,.035)}
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.filter-heading){background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:9px 14px;margin:0 16px 17px;box-shadow:0 2px 10px rgba(22,55,82,.035)}
 div[data-testid="stVerticalBlock"]:has(.filter-heading) [data-testid="stCaption"]{font-size:.72rem;color:#526A80}
 div[data-testid="stMetric"]{background:#FFFFFF;border:1px solid #DCE6EF;padding:14px 16px;border-radius:13px;box-shadow:0 3px 12px rgba(22,55,82,.045)}
 .metric-card{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:12px 12px;min-height:91px;box-shadow:0 3px 12px rgba(22,55,82,.045);display:flex;align-items:center;gap:11px}
@@ -212,7 +212,7 @@ def render_filter_bar():
     if "energy_state_filter" not in st.session_state:
         st.session_state["energy_state_filter"] = "All US"
 
-    with st.container():
+    with st.container(border=True):
         cols = st.columns([1.35, 1.9, 1.35, 1.45, .45])
         with cols[0]:
             st.markdown('<div class="filter-heading">⚲ &nbsp; Dashboard filters</div>', unsafe_allow_html=True)
