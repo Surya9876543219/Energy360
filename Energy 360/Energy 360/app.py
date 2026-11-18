@@ -6,7 +6,7 @@ import streamlit as st
 
 from services.databricks_data import EnergyData, DataAccessError
 
-st.set_page_config(page_title="Energy 360 | Enterprise Energy Management", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Energy 360 | Enterprise Energy Management", page_icon="⚡", layout="wide", initial_sidebar_state="expanded")
 
 # ------------------------- Styling -------------------------
 st.markdown("""
@@ -30,7 +30,13 @@ html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 .utility-item{font-size:1rem;color:#173A59;font-weight:700}
 .utility-avatar{background:#0DB7C8;color:#FFFFFF;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800}
 .hero-banner{position:relative;overflow:hidden;background:linear-gradient(90deg,rgba(4,35,65,.98) 0%,rgba(7,49,83,.94) 48%,rgba(8,57,85,.45) 100%),linear-gradient(135deg,#123C5D,#0A2946);padding:22px 26px 22px 28px;margin:0 -1rem 10px;min-height:132px;display:flex;align-items:center;border-left:5px solid #17C2D2}
-.hero-banner:after{content:"";position:absolute;right:0;top:0;width:52%;height:100%;opacity:.72;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 220'%3E%3Cdefs%3E%3ClinearGradient id='sky' x2='0' y2='1'%3E%3Cstop stop-color='%2394c7df'/%3E%3Cstop offset='1' stop-color='%23f4c58b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='900' height='220' fill='url(%23sky)'/%3E%3Ccircle cx='720' cy='65' r='34' fill='%23ffe3a2'/%3E%3Cpath d='M0 160 Q170 125 330 158 T650 150 T900 142 V220 H0Z' fill='%233f6b65'/%3E%3Cpath d='M0 182 L900 172 L900 220 L0 220Z' fill='%232c4f55'/%3E%3Cg stroke='%23eaf3f5' stroke-width='5' fill='none'%3E%3Cpath d='M250 40 V185 M250 40 L210 12 M250 40 L293 18 M250 40 L252 88 M500 25 V175 M500 25 L460 2 M500 25 L542 4 M500 25 L502 76 M690 55 V185 M690 55 L653 30 M690 55 L730 32 M690 55 L692 102'/%3E%3C/g%3E%3Cg fill='%231b5c83' stroke='%23b8d9e8' stroke-width='2'%3E%3Cpath d='M30 190 L115 168 L200 190Z M75 177 L160 155 L245 177Z M285 195 L370 171 L455 195Z M430 194 L515 170 L600 194Z'/%3E%3C/g%3E%3C/svg%3E");background-size:cover;background-position:center;mix-blend-mode:screen;pointer-events:none}
+.hero-banner:after{content:"";position:absolute;inset:0 0 0 42%;background-image:linear-gradient(90deg,rgba(5,35,66,.10),rgba(5,35,66,.04)),url("https://www.acer.europa.eu/sites/default/files/2024-03/ELE_KD_0.jpg");background-size:cover;background-position:center 54%;pointer-events:none}
+.hero-banner{min-height:118px;padding:18px 24px;margin:0 -1rem 10px;border-left:5px solid #17C2D2;border-radius:0}
+.hero-content{max-width:62%;text-shadow:0 1px 2px rgba(0,0,0,.12)}
+[data-testid="stSidebar"]{width:18rem!important;min-width:18rem!important}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{background:transparent}
+.utility-bar{height:42px;margin:0 -1rem 0;padding-right:20px}
+@media(max-width:900px){.hero-banner:after{left:30%;opacity:.55}.hero-content{max-width:80%}.hero-title{font-size:1.45rem}.hero-subtitle{font-size:.78rem}}
 .hero-content{position:relative;z-index:1}
 .hero-title{color:#FFFFFF;font-size:2.05rem;font-weight:850;letter-spacing:-.8px;line-height:1.15}
 .hero-subtitle{color:#E1EDF5;font-size:.92rem;margin-top:7px}
