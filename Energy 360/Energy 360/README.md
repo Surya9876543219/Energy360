@@ -1,6 +1,6 @@
-# Energy 360 – Schema-aligned Databricks App
+# Energy 360 – United States Energy Management Databricks App
 
-This app is aligned to the table and column names supplied for catalog `energy`, schema `energy`.
+This app is configured for US energy reporting. Populate `dim_state` with US states and territories, use US plant and asset records, and store energy-cost values in USD. The current physical cost-column names (`*_inr`) are legacy schema names; migrate them to `*_usd` when updating the table schema, or keep the aliases in the application queries aligned with your existing schema.
 
 ## Confirmed source tables and joins
 
@@ -40,6 +40,13 @@ GRANT USE CATALOG ON CATALOG energy TO `<app-service-principal>`;
 GRANT USE SCHEMA ON SCHEMA energy.energy TO `<app-service-principal>`;
 GRANT SELECT ON ALL TABLES IN SCHEMA energy.energy TO `<app-service-principal>`;
 ```
+
+## US sample-data requirements
+
+- `dim_state` should contain US states with USPS codes and valid latitude/longitude coordinates (for example CA, TX, NY and FL).
+- Use US-based power plants, energy assets, utility/grid records and consumption sectors.
+- Cost, revenue and gross-margin values must be populated as USD amounts; set `currency` to `USD`.
+- The application does not convert INR values into USD. Replace the existing India sample records in all 11 Unity Catalog tables before treating the dashboard as US reporting.
 
 ## Important data notes
 - `fact_carbon_emissions` was supplied twice in the schema listing; it is treated as one table.
