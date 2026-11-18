@@ -191,15 +191,27 @@ def render_utility_bar():
     </div>
     """, unsafe_allow_html=True)
 
-def render_hero():
-    st.markdown("""
-    <div class="hero-banner">
-      <div class="hero-content">
-        <div class="hero-title">Executive Dashboard</div>
-        <div class="hero-subtitle">United States energy generation, consumption, grid, asset and sustainability performance.</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+def render_hero(page):
+    page_subtitles = {
+        "Executive Dashboard": "United States energy generation, consumption, grid, asset and sustainability performance.",
+        "Energy Generation": "Monitor power generation, plant output and energy-source performance across the United States.",
+        "Transmission & Distribution": "Track grid performance, transmission reliability and distribution availability across the United States.",
+        "Energy Consumption": "Analyze energy demand, consumption patterns and usage trends across the United States.",
+        "Asset Management": "Monitor energy assets, operational health, performance and maintenance indicators.",
+        "Forecasting & Analytics": "Explore energy trends, historical performance and analytical insights for better planning.",
+        "Sustainability": "Track carbon emissions, clean energy contribution and sustainability performance.",
+        "Energy Cost & Trading": "Review energy costs, revenue and trading performance in US dollars.",
+        "Geographical Analysis": "Explore energy generation and infrastructure performance across US states.",
+        "Reports & Insights": "Review energy performance summaries, detailed records and business insights.",
+    }
+    subtitle = page_subtitles.get(page, page_subtitles["Executive Dashboard"])
+    st.markdown(
+        f'<div class="hero-banner"><div class="hero-content">'
+        f'<div class="hero-title">{page}</div>'
+        f'<div class="hero-subtitle">{subtitle}</div>'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
 
 def render_filter_bar():
     try:
@@ -534,8 +546,7 @@ try:
         st.warning("Expected tables not found in configured schema: "+", ".join(missing))
     render_utility_bar()
     page=filters()
-    if page=="Executive Dashboard":
-        render_hero()
+    render_hero(page)
     start_d,end_d,state=render_filter_bar()
     if page=="Executive Dashboard": render_dashboard(start_d,end_d,state)
     elif page=="Energy Generation": render_generation(start_d,end_d,state)
