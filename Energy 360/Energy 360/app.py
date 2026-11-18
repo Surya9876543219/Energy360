@@ -122,7 +122,7 @@ def filters():
         st.divider()
         page = st.radio("NAVIGATION", PAGES, label_visibility="collapsed")
         st.divider()
-        st.markdown("### Dashboard filters")
+        st.markdown("### Hero filters")
         if min_d and max_d:
             date_range = st.date_input("Date range", value=(min_d, max_d), min_value=min_d, max_value=max_d)
             if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
