@@ -14,41 +14,44 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 .stApp{background:#F4F7FB;color:#17324D}
-.block-container{padding:0 0 2rem!important;max-width:100%!important}
-div[data-testid="stHorizontalBlock"]:first-of-type{gap:0!important;align-items:stretch}
-div[data-testid="column"]:has(.sidebar-brand){background:linear-gradient(180deg,#031D36 0%,#092A49 58%,#06213B 100%);padding:22px 14px 26px 20px;min-height:100vh;border-right:1px solid #D7E2EC}
-.sidebar-brand{padding:0 0 22px;border-bottom:1px solid rgba(255,255,255,.24);margin-bottom:18px}
-.sidebar-brand-name{font-size:1.48rem;font-weight:850;letter-spacing:-.7px;color:#FFFFFF;white-space:nowrap}
+.block-container{padding-top:.55rem;padding-bottom:2rem;max-width:1720px}
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#031D36 0%,#0B2D4B 55%,#123C5D 100%);border-right:1px solid #D7E2EC}
+[data-testid="stSidebar"]>div{padding-top:1rem}
+[data-testid="stSidebar"] *{color:#F4F8FC}
+.sidebar-brand{padding:8px 0 20px;border-bottom:1px solid rgba(255,255,255,.25);margin-bottom:18px}
+.sidebar-brand-name{font-size:1.48rem;font-weight:850;letter-spacing:-.7px;color:#FFFFFF}
 .sidebar-brand-name span{color:#22C5D5}
-.sidebar-brand-sub{font-size:.78rem;color:#C4D3E0;margin-top:4px;white-space:nowrap}
-.sidebar-section{font-size:.72rem;font-weight:800;letter-spacing:.9px;color:#B7C9D9;margin:16px 0 8px}
-div[data-testid="column"]:has(.sidebar-brand) .stButton{margin:0 0 4px}
-div[data-testid="column"]:has(.sidebar-brand) .stButton>button{width:100%;min-height:39px;text-align:left;justify-content:flex-start;background:transparent;color:#F4F8FC;border:1px solid transparent;border-radius:8px;padding:.48rem .58rem;font-size:.82rem;font-weight:600;white-space:nowrap}
-div[data-testid="column"]:has(.sidebar-brand) .stButton>button:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.18);color:#FFFFFF}
-div[data-testid="column"]:has(.sidebar-brand) .stButton>button[kind="primary"]{background:linear-gradient(90deg,#0AA6BD,#0794B5);border-color:#27C3D4;color:#FFFFFF}
-div[data-testid="column"]:has(.sidebar-brand) [data-testid="stCaption"]{color:#B7C9D9}
-.utility-bar{height:62px;background:#FFFFFF;border-bottom:1px solid #E4EBF2;display:flex;align-items:center;justify-content:flex-end;gap:22px;padding:0 28px;margin:0}
+.sidebar-brand-sub{font-size:.78rem;color:#C4D3E0;margin-top:4px}
+.sidebar-section{font-size:.72rem;font-weight:800;letter-spacing:.9px;color:#B7C9D9;margin:17px 0 8px}
+[data-testid="stSidebar"] .stButton>button{width:100%;text-align:left;justify-content:flex-start;background:transparent;color:#F4F8FC;border:1px solid transparent;border-radius:8px;padding:.52rem .68rem;font-size:.88rem;font-weight:600}
+[data-testid="stSidebar"] .stButton>button:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.18);color:#FFFFFF}
+[data-testid="stSidebar"] .stButton>button[kind="primary"]{background:linear-gradient(90deg,#0AA6BD,#0794B5);border-color:#27C3D4;color:#FFFFFF}
+.utility-bar{height:43px;background:#FFFFFF;border-bottom:1px solid #E4EBF2;display:flex;align-items:center;justify-content:flex-end;gap:22px;padding:0 14px;margin:0 -1rem 0}
 .utility-item{font-size:1rem;color:#173A59;font-weight:700}
-.utility-avatar{background:#0DB7C8;color:#FFFFFF;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800}
-.hero-banner{position:relative;overflow:hidden;background:linear-gradient(90deg,rgba(4,35,65,.98) 0%,rgba(7,49,83,.94) 43%,rgba(8,57,85,.08) 100%),url("https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=1800&q=85");background-size:cover;background-position:center 52%;padding:22px 26px 22px 28px;margin:0 0 10px;min-height:134px;display:flex;align-items:center;border-left:5px solid #17C2D2;border-radius:0}
-.hero-content{position:relative;z-index:1;max-width:70%;text-shadow:0 1px 2px rgba(0,0,0,.12)}
+.utility-avatar{background:#0DB7C8;color:#FFFFFF;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800}
+.hero-banner{position:relative;overflow:hidden;background:linear-gradient(90deg,rgba(4,35,65,.98) 0%,rgba(7,49,83,.94) 48%,rgba(8,57,85,.45) 100%),linear-gradient(135deg,#123C5D,#0A2946);padding:22px 26px 22px 28px;margin:0 -1rem 10px;min-height:132px;display:flex;align-items:center;border-left:5px solid #17C2D2}
+.hero-banner:after{content:"";position:absolute;inset:0 0 0 42%;background-image:linear-gradient(90deg,rgba(5,35,66,.10),rgba(5,35,66,.04)),url("https://www.acer.europa.eu/sites/default/files/2024-03/ELE_KD_0.jpg");background-size:cover;background-position:center 54%;pointer-events:none}
+.hero-banner{min-height:118px;padding:18px 24px;margin:0 -1rem 10px;border-left:5px solid #17C2D2;border-radius:0}
+.hero-content{max-width:62%;text-shadow:0 1px 2px rgba(0,0,0,.12)}
+[data-testid="stSidebar"]{width:18rem!important;min-width:18rem!important}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{background:transparent}
+.utility-bar{height:42px;margin:0 -1rem 0;padding-right:20px}
+@media(max-width:900px){.hero-banner:after{left:30%;opacity:.55}.hero-content{max-width:80%}.hero-title{font-size:1.45rem}.hero-subtitle{font-size:.78rem}}
+.hero-content{position:relative;z-index:1}
 .hero-title{color:#FFFFFF;font-size:2.05rem;font-weight:850;letter-spacing:-.8px;line-height:1.15}
 .hero-subtitle{color:#E1EDF5;font-size:.92rem;margin-top:7px}
-.filter-bar{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:9px 14px;margin:0 16px 17px;box-shadow:0 2px 10px rgba(22,55,82,.035)}
-.filter-heading{font-weight:800;color:#183B59;font-size:.95rem;padding-top:7px;white-space:nowrap}
-div[data-testid="stVerticalBlock"]:has(.filter-heading){background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:9px 14px;margin:0 16px 17px;box-shadow:0 2px 10px rgba(22,55,82,.035)}
-div[data-testid="stVerticalBlock"]:has(.filter-heading) [data-testid="stCaption"]{font-size:.72rem;color:#526A80}
+.filter-bar{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:10px 14px;margin:0 0 17px;box-shadow:0 2px 10px rgba(22,55,82,.035)}
+.filter-heading{font-weight:800;color:#183B59;font-size:.95rem;padding-top:7px}
 div[data-testid="stMetric"]{background:#FFFFFF;border:1px solid #DCE6EF;padding:14px 16px;border-radius:13px;box-shadow:0 3px 12px rgba(22,55,82,.045)}
-.metric-card{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:12px 12px;min-height:91px;box-shadow:0 3px 12px rgba(22,55,82,.045);display:flex;align-items:center;gap:11px}
+.metric-card{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:13px 12px;min-height:91px;box-shadow:0 3px 12px rgba(22,55,82,.045);display:flex;align-items:center;gap:11px}
 .metric-icon{width:46px;height:46px;min-width:46px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.45rem;background:var(--icon-bg);color:var(--accent)}
 .metric-label{font-size:.78rem;color:#526A80;font-weight:650;margin-bottom:4px}
-.metric-value{font-size:1.28rem;line-height:1.25;color:#173A59;font-weight:850;white-space:nowrap}
+.metric-value{font-size:1.34rem;line-height:1.25;color:#173A59;font-weight:850;white-space:nowrap}
 .chart-panel{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:13px 16px 8px;box-shadow:0 3px 12px rgba(22,55,82,.04);height:100%}
 .chart-title{font-size:1.12rem;color:#183B59;font-weight:800;padding-bottom:10px;border-bottom:1px solid #E3EBF2;margin-bottom:8px}
 h1,h2,h3{color:#183B59;letter-spacing:-.35px}
 div[data-testid="stDataFrame"]{border:1px solid #E5EDF4;border-radius:10px}
-@media(max-width:1150px){.sidebar-brand-name{font-size:1.12rem}.sidebar-brand-sub{font-size:.68rem}.hero-title{font-size:1.6rem}.metric-value{font-size:1.05rem}.metric-icon{width:38px;height:38px;min-width:38px}}
-@media(max-width:760px){div[data-testid="column"]:has(.sidebar-brand){padding:12px 7px}.sidebar-brand-name{font-size:.85rem}.sidebar-brand-sub{white-space:normal}.hero-content{max-width:95%}.hero-title{font-size:1.25rem}.hero-subtitle{font-size:.75rem}}
+@media(max-width:1050px){.metric-value{font-size:1.08rem}.hero-title{font-size:1.6rem}.hero-banner:after{width:42%}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -139,17 +142,17 @@ def show_df(df, title, limit=500):
 def _choose_page(page_name):
     st.session_state["active_energy_page"] = page_name
 
-def filters(sidebar_container):
+def filters():
     groups = [
-        ("DASHBOARDS", ["Executive Dashboard", "Energy Generation", "Transmission & Distribution", "Energy Consumption"]),
-        ("OPERATIONS", ["Asset Management", "Forecasting & Analytics"]),
+        ("OVERVIEW", ["Executive Dashboard"]),
+        ("OPERATIONS", ["Energy Generation", "Transmission & Distribution", "Energy Consumption", "Asset Management", "Forecasting & Analytics"]),
         ("SUSTAINABILITY & MARKETS", ["Sustainability", "Energy Cost & Trading"]),
         ("INSIGHTS", ["Geographical Analysis", "Reports & Insights"]),
     ]
     if "active_energy_page" not in st.session_state:
         st.session_state["active_energy_page"] = "Executive Dashboard"
 
-    with sidebar_container:
+    with st.sidebar:
         st.markdown("""
         <div class="sidebar-brand">
           <div class="sidebar-brand-name">⚡ ENERGY <span>360</span></div>
@@ -160,8 +163,8 @@ def filters(sidebar_container):
             st.markdown(f'<div class="sidebar-section">{group_name}</div>', unsafe_allow_html=True)
             for page_name in pages:
                 icon = {
-                    "Executive Dashboard":"⌂", "Energy Generation":"▥",
-                    "Transmission & Distribution":"♜", "Energy Consumption":"♧",
+                    "Executive Dashboard":"◉", "Energy Generation":"▥",
+                    "Transmission & Distribution":"⚡", "Energy Consumption":"♧",
                     "Asset Management":"⚙", "Forecasting & Analytics":"⌁",
                     "Sustainability":"❧", "Energy Cost & Trading":"▤",
                     "Geographical Analysis":"⌖", "Reports & Insights":"▣",
@@ -172,9 +175,10 @@ def filters(sidebar_container):
                     type="primary" if st.session_state["active_energy_page"] == page_name else "secondary",
                     on_click=_choose_page,
                     args=(page_name,),
-                    use_container_width=True,
                 )
-        st.markdown("---")
+        st.divider()
+        st.caption(f"Catalog: {CATALOG}")
+        st.caption(f"Schema: {SCHEMA}")
     return st.session_state["active_energy_page"]
 
 def render_utility_bar():
@@ -212,50 +216,51 @@ def render_filter_bar():
     if "energy_state_filter" not in st.session_state:
         st.session_state["energy_state_filter"] = "All US"
 
-    with st.container():
-        cols = st.columns([1.35, 1.9, 1.35, 1.45, .45])
-        with cols[0]:
-            st.markdown('<div class="filter-heading">⚲ &nbsp; Dashboard filters</div>', unsafe_allow_html=True)
-        with cols[1]:
-            st.caption("Date range")
-            if min_d and max_d:
-                selected_range = st.date_input(
-                    "Date range",
-                    value=st.session_state["energy_date_range"],
-                    min_value=min_d,
-                    max_value=max_d,
-                    label_visibility="collapsed",
-                    key="energy_date_picker",
-                )
-                if isinstance(selected_range, (tuple, list)) and len(selected_range) == 2:
-                    start_d, end_d = selected_range
-                else:
-                    start_d, end_d = min_d, max_d
-            else:
-                start_d, end_d = None, None
-                st.caption("Date range unavailable")
-        with cols[2]:
-            st.caption("State")
-            state = st.selectbox(
-                "State",
-                ["All US"] + states,
-                index=(["All US"] + states).index(st.session_state["energy_state_filter"])
-                    if st.session_state["energy_state_filter"] in (["All US"] + states) else 0,
+    st.markdown('<div class="filter-bar">', unsafe_allow_html=True)
+    cols = st.columns([1.35, 1.9, 1.35, 1.45, .45])
+    with cols[0]:
+        st.markdown('<div class="filter-heading">⚲ &nbsp; Dashboard filters</div>', unsafe_allow_html=True)
+    with cols[1]:
+        st.caption("Date range")
+        if min_d and max_d:
+            selected_range = st.date_input(
+                "Date range",
+                value=st.session_state["energy_date_range"],
+                min_value=min_d,
+                max_value=max_d,
                 label_visibility="collapsed",
-                key="energy_state_picker",
+                key="energy_date_picker",
             )
-        with cols[3]:
-            st.caption("Apply filters")
-            if st.button("⌕  Apply Filters", type="primary", use_container_width=True):
-                st.session_state["energy_date_range"] = (start_d, end_d) if start_d and end_d else None
-                st.session_state["energy_state_filter"] = state
-                st.rerun()
-        with cols[4]:
-            st.caption(" ")
-            if st.button("↻", help="Refresh data", use_container_width=True):
-                st.cache_data.clear()
-                st.rerun()
-    
+            if isinstance(selected_range, (tuple, list)) and len(selected_range) == 2:
+                start_d, end_d = selected_range
+            else:
+                start_d, end_d = min_d, max_d
+        else:
+            start_d, end_d = None, None
+            st.caption("Date range unavailable")
+    with cols[2]:
+        st.caption("State")
+        state = st.selectbox(
+            "State",
+            ["All US"] + states,
+            index=(["All US"] + states).index(st.session_state["energy_state_filter"])
+                if st.session_state["energy_state_filter"] in (["All US"] + states) else 0,
+            label_visibility="collapsed",
+            key="energy_state_picker",
+        )
+    with cols[3]:
+        st.caption("Apply filters")
+        if st.button("⌕  Apply Filters", type="primary", use_container_width=True):
+            st.session_state["energy_date_range"] = (start_d, end_d) if start_d and end_d else None
+            st.session_state["energy_state_filter"] = state
+            st.rerun()
+    with cols[4]:
+        st.caption(" ")
+        if st.button("↻", help="Refresh data", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
     applied_range = st.session_state.get("energy_date_range")
     if applied_range and len(applied_range) == 2:
         start_d, end_d = applied_range
@@ -527,28 +532,25 @@ try:
     missing=sorted(expected-set(available))
     if missing:
         st.warning("Expected tables not found in configured schema: "+", ".join(missing))
-
-    left_nav, main_content = st.columns([0.177, 0.823], gap="small")
-    page = filters(left_nav)
-    with main_content:
-        render_utility_bar()
-        if page=="Executive Dashboard":
-            render_hero()
-        start_d,end_d,state=render_filter_bar()
-        if page=="Executive Dashboard": render_dashboard(start_d,end_d,state)
-        elif page=="Energy Generation": render_generation(start_d,end_d,state)
-        elif page=="Transmission & Distribution": render_grid(start_d,end_d,state)
-        elif page=="Energy Consumption": render_consumption(start_d,end_d,state)
-        elif page=="Asset Management": render_assets(start_d,end_d,state)
-        elif page=="Forecasting & Analytics": render_forecasting(start_d,end_d,state)
-        elif page=="Sustainability": render_sustainability(start_d,end_d,state)
-        elif page=="Energy Cost & Trading": render_costs(start_d,end_d,state)
-        elif page=="Geographical Analysis": render_geography(start_d,end_d)
-        elif page=="Reports & Insights": render_reports(start_d,end_d,state)
-        with st.expander("Data source diagnostics"):
-            st.write(f"Catalog: `{CATALOG}` | Schema: `{SCHEMA}`")
-            st.write("Tables discovered:", ", ".join(available))
-            st.caption("All measures are calculated from your existing Unity Catalog fact and dimension tables. Configure the tables with US state, plant and USD-denominated sample records.")
+    render_utility_bar()
+    page=filters()
+    if page=="Executive Dashboard":
+        render_hero()
+    start_d,end_d,state=render_filter_bar()
+    if page=="Executive Dashboard": render_dashboard(start_d,end_d,state)
+    elif page=="Energy Generation": render_generation(start_d,end_d,state)
+    elif page=="Transmission & Distribution": render_grid(start_d,end_d,state)
+    elif page=="Energy Consumption": render_consumption(start_d,end_d,state)
+    elif page=="Asset Management": render_assets(start_d,end_d,state)
+    elif page=="Forecasting & Analytics": render_forecasting(start_d,end_d,state)
+    elif page=="Sustainability": render_sustainability(start_d,end_d,state)
+    elif page=="Energy Cost & Trading": render_costs(start_d,end_d,state)
+    elif page=="Geographical Analysis": render_geography(start_d,end_d)
+    elif page=="Reports & Insights": render_reports(start_d,end_d,state)
+    with st.expander("Data source diagnostics"):
+        st.write(f"Catalog: `{CATALOG}` | Schema: `{SCHEMA}`")
+        st.write("Tables discovered:", ", ".join(available))
+        st.caption("All measures are calculated from your existing Unity Catalog fact and dimension tables. Configure the tables with US state, plant and USD-denominated sample records.")
 except DataAccessError as e:
     st.error("Could not connect to your Energy 360 data.")
     st.code(str(e))
