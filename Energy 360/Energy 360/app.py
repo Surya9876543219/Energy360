@@ -14,9 +14,21 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 .stApp{background:#F5F8FB;color:#18324B}
-[data-testid="stSidebar"]{background:linear-gradient(180deg,#123C5D,#0F304B)}
-[data-testid="stSidebar"] *{color:#F4F8FC}
-.block-container{padding-top:1.5rem;padding-bottom:2.5rem;max-width:1600px}
+[data-testid="stSidebar"]{display:none}
+.block-container{padding-top:1.15rem;padding-bottom:2.5rem;max-width:1720px}
+.top-brand{display:flex;align-items:center;gap:12px;padding:8px 0 14px;border-bottom:1px solid #DCE6EF;margin-bottom:12px}
+.brand-mark{font-size:2rem;line-height:1}
+.brand-name{font-size:1.55rem;font-weight:800;letter-spacing:-.7px;color:#123C5D}
+.brand-subtitle{font-size:.72rem;font-weight:700;letter-spacing:1.4px;color:#718399}
+div[data-testid="stRadio"]{background:linear-gradient(90deg,#123C5D,#0F304B);padding:9px 12px;border-radius:13px;margin:0 0 14px}
+div[data-testid="stRadio"] > label{display:none}
+div[data-testid="stRadio"] div[role="radiogroup"]{display:flex;flex-wrap:wrap;gap:6px}
+div[data-testid="stRadio"] div[role="radiogroup"] label{background:transparent;border:1px solid transparent;border-radius:9px;padding:8px 12px;margin:0;color:#F4F8FC;font-weight:600;transition:all .15s ease}
+div[data-testid="stRadio"] div[role="radiogroup"] label:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.22)}
+div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked){background:#16A6B8;border-color:#46C4D0;color:#FFFFFF;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+div[data-testid="stRadio"] div[role="radiogroup"] label p{font-size:.83rem}
+.filter-bar{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:12px 14px;margin-bottom:18px}
+@media(max-width:900px){div[data-testid="stRadio"] div[role="radiogroup"]{gap:4px}div[data-testid="stRadio"] div[role="radiogroup"] label{padding:7px 9px}}
 h1,h2,h3{color:#183B59;letter-spacing:-.35px}
 div[data-testid="stMetric"]{background:#fff;border:1px solid #E5EDF4;padding:15px 17px;border-radius:13px;box-shadow:0 3px 12px rgba(22,55,82,.035)}
 div[data-testid="stMetricLabel"]{color:#718399;font-size:.82rem;font-weight:650}
@@ -116,15 +128,39 @@ def filters():
         min_d, max_d = date_bounds()
     except Exception:
         min_d, max_d = None, None
-    with st.sidebar:
-        st.markdown("## ⚡ ENERGY 360")
-        st.caption("ENTERPRISE ENERGY MANAGEMENT")
-        st.divider()
-        page = st.radio("NAVIGATION", PAGES, label_visibility="collapsed")
-        st.divider()
-        st.markdown("### Dashboard filters")
+
+    # Brand header and horizontal page navigation
+    st.markdown("""
+    <div class="top-brand">
+      <div class="brand-mark">⚡</div>
+      <div>
+        <div class="brand-name">ENERGY 360</div>
+        <div class="brand-subtitle">ENTERPRISE ENERGY MANAGEMENT</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    page = st.radio(
+        "NAVIGATION",
+        PAGES,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="top_navigation",
+    )
+
+    # Global filters are displayed below the navigation for quick access.
+    st.markdown('<div class="filter-bar">', unsafe_allow_html=True)
+    filter_cols = st.columns([1.8, 1.2, 0.55])
+    with filter_cols[0]:
+        st.markdown("**Dashboard filters · Date range**")
         if min_d and max_d:
-            date_range = st.date_input("Date range", value=(min_d, max_d), min_value=min_d, max_value=max_d)
+            date_range = st.date_input(
+                "Date range",
+                value=(min_d, max_d),
+                min_value=min_d,
+                max_value=max_d,
+                label_visibility="collapsed",
+            )
             if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
                 start_d, end_d = date_range
             else:
@@ -132,18 +168,25 @@ def filters():
         else:
             start_d, end_d = None, None
             st.caption("Date dimension bounds unavailable.")
+    with filter_cols[1]:
+        st.markdown("**State**")
         try:
             states = data_client().state_names()
         except Exception:
             states = []
         state_options = ["All US"] + states
-        selected_state = st.selectbox("State", state_options)
-        st.divider()
-        st.caption(f"Catalog: {CATALOG}")
-        st.caption(f"Schema: {SCHEMA}")
+        selected_state = st.selectbox(
+            "State",
+            state_options,
+            label_visibility="collapsed",
+        )
+    with filter_cols[2]:
+        st.markdown("**Refresh**")
         if st.button("↻ Refresh data", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
     return page, start_d, end_d, selected_state
 
 def render_dashboard(start_d, end_d, state):
