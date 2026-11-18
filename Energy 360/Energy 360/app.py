@@ -6,7 +6,7 @@ import streamlit as st
 
 from services.databricks_data import EnergyData, DataAccessError
 
-st.set_page_config(page_title="Energy 360 | Enterprise Energy Management", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Praveen Energy | Enterprise Energy Management", page_icon="⚡", layout="wide")
 
 # ------------------------- Styling -------------------------
 st.markdown("""
@@ -106,7 +106,7 @@ def show_df(df, title, limit=500):
     st.download_button(
         f"Download {title} CSV",
         df.to_csv(index=False).encode("utf-8"),
-        file_name=f"energy360_{title.lower().replace(' ','_')}.csv",
+        file_name=f"praveen_energy_{title.lower().replace(' ','_')}.csv",
         mime="text/csv",
         key=f"download_{title.replace(' ','_')}",
     )
@@ -117,7 +117,7 @@ def filters():
     except Exception:
         min_d, max_d = None, None
     with st.sidebar:
-        st.markdown("## ⚡ ENERGY 360")
+        st.markdown("## ⚡ PRAVEEN ENERGY")
         st.caption("ENTERPRISE ENERGY MANAGEMENT")
         st.divider()
         page = st.radio("NAVIGATION", PAGES, label_visibility="collapsed")
@@ -354,7 +354,7 @@ def render_forecasting(start_d,end_d,state):
         show_df(df,"Generation history")
 
 def render_reports(start_d,end_d,state):
-    page_heading("Reports & Insights","Download filtered data from the Energy 360 business tables.")
+    page_heading("Reports & Insights","Download filtered data from the Praveen Energy business tables.")
     report=st.selectbox("Select report",["Generation","Consumption","Grid Performance","Asset Performance","Carbon Emissions","Energy Cost"])
     loaders={
         "Generation":get_generation_data,"Consumption":get_consumption_data,
@@ -392,7 +392,7 @@ try:
         st.write("Tables discovered:", ", ".join(available))
         st.caption("All measures are calculated from your existing Unity Catalog fact and dimension tables. Configure the tables with US state, plant and USD-denominated sample records.")
 except DataAccessError as e:
-    st.error("Could not connect to your Energy 360 data.")
+    st.error("Could not connect to your Praveen Energy data.")
     st.code(str(e))
     st.markdown("""
 Check:
