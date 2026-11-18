@@ -84,8 +84,8 @@ def get_state_data(start_date, end_date):
 def fmt_num(v, digits=1):
     return "—" if v is None or pd.isna(v) else f"{v:,.{digits}f}"
 
-def fmt_inr(v):
-    return "—" if v is None or pd.isna(v) else f"₹{v:,.0f}"
+def fmt_usd(v):
+    return "—" if v is None or pd.isna(v) else f"${v:,.0f}"
 
 def page_heading(title, subtitle):
     st.title(title)
@@ -136,7 +136,7 @@ def filters():
             states = data_client().state_names()
         except Exception:
             states = []
-        state_options = ["All India"] + states
+        state_options = ["All US"] + states
         selected_state = st.selectbox("State", state_options)
         st.divider()
         st.caption(f"Catalog: {CATALOG}")
@@ -147,7 +147,7 @@ def filters():
     return page, start_d, end_d, selected_state
 
 def render_dashboard(start_d, end_d, state):
-    page_heading("Energy Overview", "India-wide generation, consumption, grid, asset and sustainability performance.")
+    page_heading("Energy Overview", "United States generation, consumption, grid, asset and sustainability performance.")
     data = get_dashboard_data(start_d, end_d, state)
     gen, cons, grid, plants, emissions, costs = (data[k] for k in ["generation","consumption","grid","capacity","emissions","costs"])
 
@@ -166,7 +166,7 @@ def render_dashboard(start_d, end_d, state):
     metric_row([
         ("Installed Capacity", f"{capacity/1000:,.2f} GW" if capacity is not None else "—", "SUM(dim_power_plant.installedcapacitymw) / 1,000"),
         ("Carbon Emissions", f"{co2:,.2f} tCO₂e" if co2 is not None else "—", "SUM(fact_carbon_emissions.emissions_tco2e)"),
-        ("Energy Cost", fmt_inr(cost), "SUM(fact_energy_cost.totalcost_inr)"),
+        ("Energy Cost", fmt_usd(cost), "SUM(fact_energy_cost.totalcost_inr)"),
     ])
 
     st.divider()
@@ -202,7 +202,7 @@ def render_dashboard(start_d, end_d, state):
             fig = px.scatter_geo(states,lat="latitude",lon="longitude",size="generation_mwh",
                                  color="generation_mwh",hover_name="statename",
                                  hover_data={"generation_mwh":":,.0f","latitude":False,"longitude":False},
-                                 scope="asia",color_continuous_scale=["#BFE7D0","#1976D2"])
+                                 scope="usa",color_continuous_scale=["#BFE7D0","#1976D2"])
             fig.update_geos(fitbounds="locations",visible=False,showland=True,landcolor="#F2F7FB",
                             showcountries=True,countrycolor="#CBD8E5",showocean=True,oceancolor="#FFFFFF")
             fig.update_layout(height=360,margin=dict(l=0,r=0,t=0,b=0),paper_bgcolor="white")
@@ -315,14 +315,14 @@ def render_sustainability(start_d,end_d,state):
     show_df(df,"Emissions detail")
 
 def render_costs(start_d,end_d,state):
-    page_heading("Energy Cost & Trading","Energy purchases, unit costs, revenue and gross margin in Indian Rupees.")
+    page_heading("Energy Cost & Trading","Energy purchases, unit costs, revenue and gross margin in US Dollars.")
     df=get_cost_data(start_d,end_d,state)
     if df.empty:
         st.info("No energy cost records for the selected filters."); return
     metric_row([("Purchased Energy",f"{df.energypurchased_mwh.sum():,.2f} MWh",None),
-                ("Total Cost",fmt_inr(df.totalcost_inr.sum()),None),
-                ("Revenue",fmt_inr(df.revenue_inr.sum()),None),
-                ("Gross Margin",fmt_inr(df.grossmargin_inr.sum()),None)])
+                ("Total Cost",fmt_usd(df.totalcost_inr.sum()),None),
+                ("Revenue",fmt_usd(df.revenue_inr.sum()),None),
+                ("Gross Margin",fmt_usd(df.grossmargin_inr.sum()),None)])
     a,b=st.columns(2)
     with a:
         st.plotly_chart(px.bar(df.groupby("energysource",as_index=False)["totalcost_inr"].sum(),x="energysource",y="totalcost_inr",color="energysource",title="Cost by source"),use_container_width=True)
@@ -337,7 +337,7 @@ def render_geography(start_d,end_d):
         st.info("No state dimension records found."); return
     if {"latitude","longitude"}.issubset(df.columns):
         fig=px.scatter_geo(df,lat="latitude",lon="longitude",hover_name="statename",
-                           size="generation_mwh",color="region",scope="asia",
+                           size="generation_mwh",color="region",scope="usa",
                            hover_data=["generation_mwh","consumption_mwh","gridavailabilitypct"])
         fig.update_geos(fitbounds="locations",visible=False,showland=True,landcolor="#F2F7FB")
         fig.update_layout(height=520,margin=dict(l=0,r=0,t=10,b=0))
@@ -390,7 +390,7 @@ try:
     with st.expander("Data source diagnostics"):
         st.write(f"Catalog: `{CATALOG}` | Schema: `{SCHEMA}`")
         st.write("Tables discovered:", ", ".join(available))
-        st.caption("All measures are calculated from your existing Unity Catalog fact and dimension tables.")
+        st.caption("All measures are calculated from your existing Unity Catalog fact and dimension tables. Configure the tables with US state, plant and USD-denominated sample records.")
 except DataAccessError as e:
     st.error("Could not connect to your Energy 360 data.")
     st.code(str(e))
