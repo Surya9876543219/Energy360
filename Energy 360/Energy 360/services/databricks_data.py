@@ -98,7 +98,7 @@ class EnergyData:
 
     @staticmethod
     def _state_filter(state, alias="s"):
-        if not state or state == "All India":
+        if not state or state == "All US":
             return ""
         safe = state.replace("'", "''")
         return f" AND {alias}.statename = '{safe}'"
