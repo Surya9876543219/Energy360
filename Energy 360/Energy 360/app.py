@@ -14,21 +14,38 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 .stApp{background:#F5F8FB;color:#18324B}
-[data-testid="stSidebar"]{display:none}
-.block-container{padding-top:1.15rem;padding-bottom:2.5rem;max-width:1720px}
-.top-brand{display:flex;align-items:center;gap:12px;padding:8px 0 14px;border-bottom:1px solid #DCE6EF;margin-bottom:12px}
-.brand-mark{font-size:2rem;line-height:1}
-.brand-name{font-size:1.55rem;font-weight:800;letter-spacing:-.7px;color:#123C5D}
-.brand-subtitle{font-size:.72rem;font-weight:700;letter-spacing:1.4px;color:#718399}
-div[data-testid="stRadio"]{background:linear-gradient(90deg,#123C5D,#0F304B);padding:9px 12px;border-radius:13px;margin:0 0 14px}
-div[data-testid="stRadio"] > label{display:none}
-div[data-testid="stRadio"] div[role="radiogroup"]{display:flex;flex-wrap:wrap;gap:6px}
-div[data-testid="stRadio"] div[role="radiogroup"] label{background:transparent;border:1px solid transparent;border-radius:9px;padding:8px 12px;margin:0;color:#F4F8FC;font-weight:600;transition:all .15s ease}
-div[data-testid="stRadio"] div[role="radiogroup"] label:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.22)}
-div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked){background:#16A6B8;border-color:#46C4D0;color:#FFFFFF;box-shadow:0 2px 8px rgba(0,0,0,.12)}
-div[data-testid="stRadio"] div[role="radiogroup"] label p{font-size:.83rem}
-.filter-bar{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:12px 14px;margin-bottom:18px}
-@media(max-width:900px){div[data-testid="stRadio"] div[role="radiogroup"]{gap:4px}div[data-testid="stRadio"] div[role="radiogroup"] label{padding:7px 9px}}
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#06213B 0%,#0E3555 55%,#123C5D 100%);border-right:1px solid #D7E2EC}
+[data-testid="stSidebar"] > div{padding-top:1.1rem}
+[data-testid="stSidebar"] *{color:#F4F8FC}
+[data-testid="stSidebar"] [data-testid="stRadio"]{background:transparent;padding:0;border-radius:0}
+[data-testid="stSidebar"] [data-testid="stRadio"] > label{display:none}
+[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"]{gap:5px}
+[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label{padding:9px 10px;border-radius:8px;border:1px solid transparent;font-weight:600}
+[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label:hover{background:rgba(255,255,255,.10)}
+[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked){background:linear-gradient(90deg,#0AA6BD,#0794B5);border-color:#27C3D4}
+.block-container{padding-top:1.15rem;padding-bottom:2.5rem;max-width:1600px}
+.sidebar-brand{padding:4px 0 18px;border-bottom:1px solid rgba(255,255,255,.25);margin-bottom:18px}
+.sidebar-brand-name{font-size:1.35rem;font-weight:850;letter-spacing:-.6px;color:#FFFFFF}
+.sidebar-brand-name span{color:#23C6D6}
+.sidebar-brand-sub{font-size:.72rem;letter-spacing:.6px;color:#B9C9D8;margin-top:3px}
+.sidebar-section{font-size:.70rem;font-weight:800;letter-spacing:1px;color:#AFC3D5;margin:16px 0 7px}
+.hero-banner{background:linear-gradient(105deg,rgba(5,35,66,.98) 0%,rgba(8,56,91,.92) 52%,rgba(9,75,104,.55) 100%),radial-gradient(circle at 85% 20%,rgba(27,190,199,.5),transparent 30%),linear-gradient(135deg,#123C5D,#0A2946);border-radius:0 0 3px 3px;padding:22px 26px;margin:-.25rem -0.25rem 14px;min-height:118px;display:flex;align-items:center;box-shadow:0 4px 14px rgba(10,43,72,.12)}
+.hero-title{color:#FFFFFF;font-size:2.05rem;font-weight:850;letter-spacing:-.8px;line-height:1.15}
+.hero-subtitle{color:#D8E7F2;font-size:.92rem;margin-top:6px}
+.filter-bar{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:10px 14px;margin:0 0 18px;box-shadow:0 2px 10px rgba(22,55,82,.035)}
+.metric-card{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:13px 14px;min-height:88px;box-shadow:0 3px 12px rgba(22,55,82,.045);border-left:4px solid var(--accent)}
+.metric-card-label{font-size:.82rem;color:#50677D;font-weight:650}
+.metric-card-value{font-size:1.55rem;line-height:1.35;color:#173A59;font-weight:850;white-space:nowrap}
+.metric-card-icon{float:left;margin-right:10px;width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.35rem;background:var(--icon-bg)}
+.chart-panel{background:#FFFFFF;border:1px solid #DCE6EF;border-radius:13px;padding:8px 12px;box-shadow:0 3px 12px rgba(22,55,82,.035)}
+h1,h2,h3{color:#183B59;letter-spacing:-.35px}
+div[data-testid="stMetric"]{background:#fff;border:1px solid #E5EDF4;padding:15px 17px;border-radius:13px;box-shadow:0 3px 12px rgba(22,55,82,.035)}
+div[data-testid="stMetricLabel"]{color:#718399;font-size:.82rem;font-weight:650}
+div[data-testid="stMetricValue"]{color:#173A59;font-size:1.6rem;font-weight:800}
+.panel{background:#fff;border:1px solid #E5EDF4;border-radius:13px;padding:14px 17px;margin-bottom:14px}
+div[data-testid="stDataFrame"]{border:1px solid #E5EDF4;border-radius:10px}
+.small-note{font-size:.78rem;color:#8293A5}
+@media(max-width:900px){.hero-title{font-size:1.55rem}.metric-card-value{font-size:1.2rem}}
 h1,h2,h3{color:#183B59;letter-spacing:-.35px}
 div[data-testid="stMetric"]{background:#fff;border:1px solid #E5EDF4;padding:15px 17px;border-radius:13px;box-shadow:0 3px 12px rgba(22,55,82,.035)}
 div[data-testid="stMetricLabel"]{color:#718399;font-size:.82rem;font-weight:650}
@@ -129,38 +146,19 @@ def filters():
     except Exception:
         min_d, max_d = None, None
 
-    # Brand header and horizontal page navigation
-    st.markdown("""
-    <div class="top-brand">
-      <div class="brand-mark">⚡</div>
-      <div>
-        <div class="brand-name">ENERGY 360</div>
-        <div class="brand-subtitle">ENTERPRISE ENERGY MANAGEMENT</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    page = st.radio(
-        "NAVIGATION",
-        PAGES,
-        horizontal=True,
-        label_visibility="collapsed",
-        key="top_navigation",
-    )
-
-    # Global filters are displayed below the navigation for quick access.
-    st.markdown('<div class="filter-bar">', unsafe_allow_html=True)
-    filter_cols = st.columns([1.8, 1.2, 0.55])
-    with filter_cols[0]:
-        st.markdown("**Dashboard filters · Date range**")
+    with st.sidebar:
+        st.markdown("""
+        <div class="sidebar-brand">
+          <div class="sidebar-brand-name">⚡ ENERGY <span>360</span></div>
+          <div class="sidebar-brand-sub">ENTERPRISE ENERGY MANAGEMENT</div>
+        </div>
+        <div class="sidebar-section">DASHBOARDS</div>
+        """, unsafe_allow_html=True)
+        page = st.radio("NAVIGATION", PAGES, label_visibility="collapsed", key="side_navigation")
+        st.divider()
+        st.markdown("### Dashboard filters")
         if min_d and max_d:
-            date_range = st.date_input(
-                "Date range",
-                value=(min_d, max_d),
-                min_value=min_d,
-                max_value=max_d,
-                label_visibility="collapsed",
-            )
+            date_range = st.date_input("Date range", value=(min_d, max_d), min_value=min_d, max_value=max_d)
             if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
                 start_d, end_d = date_range
             else:
@@ -168,29 +166,30 @@ def filters():
         else:
             start_d, end_d = None, None
             st.caption("Date dimension bounds unavailable.")
-    with filter_cols[1]:
-        st.markdown("**State**")
         try:
             states = data_client().state_names()
         except Exception:
             states = []
         state_options = ["All US"] + states
-        selected_state = st.selectbox(
-            "State",
-            state_options,
-            label_visibility="collapsed",
-        )
-    with filter_cols[2]:
-        st.markdown("**Refresh**")
+        selected_state = st.selectbox("State", state_options)
+        st.divider()
+        st.caption(f"Catalog: {CATALOG}")
+        st.caption(f"Schema: {SCHEMA}")
         if st.button("↻ Refresh data", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
     return page, start_d, end_d, selected_state
 
 def render_dashboard(start_d, end_d, state):
-    page_heading("Energy Overview", "United States generation, consumption, grid, asset and sustainability performance.")
+    st.markdown("""
+    <div class="hero-banner">
+      <div>
+        <div class="hero-title">Executive Dashboard</div>
+        <div class="hero-subtitle">United States energy generation, consumption, grid, asset and sustainability performance.</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     data = get_dashboard_data(start_d, end_d, state)
     gen, cons, grid, plants, emissions, costs = (data[k] for k in ["generation","consumption","grid","capacity","emissions","costs"])
 
@@ -201,41 +200,59 @@ def render_dashboard(start_d, end_d, state):
     co2 = float(emissions["emissions_tco2e"].sum()) if not emissions.empty else None
     cost = float(costs["totalcost_inr"].sum()) if not costs.empty else None
 
-    metric_row([
-        ("Energy Generated", f"{generated/1000:,.2f} GWh" if generated is not None else "—", "SUM(fact_generation.generation_mwh) / 1,000"),
-        ("Energy Consumed", f"{consumed/1000:,.2f} GWh" if consumed is not None else "—", "SUM(fact_consumption.consumption_mwh) / 1,000"),
-        ("Grid Availability", f"{availability:,.2f}%" if availability is not None else "—", "Average gridavailabilitypct"),
-    ])
-    metric_row([
-        ("Installed Capacity", f"{capacity/1000:,.2f} GW" if capacity is not None else "—", "SUM(dim_power_plant.installedcapacitymw) / 1,000"),
-        ("Carbon Emissions", f"{co2:,.2f} tCO₂e" if co2 is not None else "—", "SUM(fact_carbon_emissions.emissions_tco2e)"),
-        ("Energy Cost", fmt_usd(cost), "SUM(fact_energy_cost.totalcost_inr)"),
-    ])
+    cards = [
+        ("⚡", "Energy Generated", f"{generated/1000:,.2f} GWh" if generated is not None else "—", "#16A66A", "#E5F8EE"),
+        ("🔌", "Energy Consumed", f"{consumed/1000:,.2f} GWh" if consumed is not None else "—", "#1976D2", "#E6F2FF"),
+        ("▱", "Grid Availability", f"{availability:,.2f}%" if availability is not None else "—", "#8B5CF6", "#F1EAFE"),
+        ("⚡", "Installed Capacity", f"{capacity/1000:,.2f} GW" if capacity is not None else "—", "#E69A19", "#FFF3DD"),
+        ("🍃", "Carbon Emissions", f"{co2:,.2f} tCO₂e" if co2 is not None else "—", "#20A45B", "#E7F8EC"),
+        ("▤", "Energy Cost", fmt_usd(cost), "#168ACB", "#E4F5FC"),
+    ]
+    card_cols = st.columns(3)
+    for i, (icon, label, value, accent, icon_bg) in enumerate(cards):
+        with card_cols[i % 3]:
+            st.markdown(
+                f'<div class="metric-card" style="--accent:{accent};--icon-bg:{icon_bg}">'
+                f'<div class="metric-card-icon">{icon}</div>'
+                f'<div class="metric-card-label">{label}</div>'
+                f'<div class="metric-card-value">{value}</div></div>',
+                unsafe_allow_html=True,
+            )
 
-    st.divider()
-    c1,c2 = st.columns([1.5,1])
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    c1,c2 = st.columns([1.15,1])
     with c1:
-        st.subheader("Generation vs consumption")
+        st.markdown('<div class="chart-panel">', unsafe_allow_html=True)
+        st.subheader("↗  Generation vs consumption")
         trend = data["trend"]
         if not trend.empty:
             long = trend.melt(id_vars="date", value_vars=["generation_mwh","consumption_mwh"], var_name="metric", value_name="mwh")
             long["metric"] = long["metric"].map({"generation_mwh":"Generation","consumption_mwh":"Consumption"})
-            fig = px.line(long, x="date", y="mwh", color="metric", markers=True,
+            fig = px.area(long, x="date", y="mwh", color="metric",
                           color_discrete_map={"Generation":"#1976D2","Consumption":"#25A55B"})
-            fig.update_layout(height=340, margin=dict(l=5,r=5,t=15,b=5), plot_bgcolor="white", paper_bgcolor="white", legend_title="")
+            fig.update_traces(line_width=2)
+            fig.update_layout(height=330, margin=dict(l=5,r=5,t=10,b=5), plot_bgcolor="white", paper_bgcolor="white",
+                              legend_title="", hovermode="x unified")
+            fig.update_xaxes(showgrid=False, zeroline=False)
+            fig.update_yaxes(gridcolor="#E8EFF5", zeroline=False, title="Energy (MWh)")
             st.plotly_chart(fig,use_container_width=True)
         else:
             st.info("No generation/consumption trend rows for this filter.")
+        st.markdown('</div>', unsafe_allow_html=True)
     with c2:
-        st.subheader("Generation by energy source")
+        st.markdown('<div class="chart-panel">', unsafe_allow_html=True)
+        st.subheader("◉  Generation by energy source")
         by_source = data["by_source"]
         if not by_source.empty:
-            fig = px.pie(by_source,names="energysource",values="generation_mwh",hole=.62,
-                         color_discrete_sequence=["#1976D2","#25A55B","#53B6D8","#F3B53F","#8A8FE8"])
-            fig.update_layout(height=340,margin=dict(l=5,r=5,t=15,b=5),legend_title="")
+            fig = px.pie(by_source,names="energysource",values="generation_mwh",hole=.58,
+                         color_discrete_sequence=["#1976D2","#25A55B","#F3B53F","#8A55D8","#14B8C4","#9AA8B5"])
+            fig.update_traces(textposition="inside",textinfo="percent")
+            fig.update_layout(height=330,margin=dict(l=5,r=5,t=10,b=5),legend_title="",
+                              paper_bgcolor="white",font=dict(color="#18324B"))
             st.plotly_chart(fig,use_container_width=True)
         else:
             st.info("No source-wise generation data available.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     c3,c4 = st.columns([1,1])
     with c3:
