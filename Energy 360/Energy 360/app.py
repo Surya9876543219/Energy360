@@ -141,11 +141,6 @@ def show_df(df, title, limit=500):
     )
 
 def filters():
-    try:
-        min_d, max_d = date_bounds()
-    except Exception:
-        min_d, max_d = None, None
-
     with st.sidebar:
         st.markdown("""
         <div class="sidebar-brand">
@@ -156,29 +151,61 @@ def filters():
         """, unsafe_allow_html=True)
         page = st.radio("NAVIGATION", PAGES, label_visibility="collapsed", key="side_navigation")
         st.divider()
-        st.markdown("### Dashboard filters")
-        if min_d and max_d:
-            date_range = st.date_input("Date range", value=(min_d, max_d), min_value=min_d, max_value=max_d)
-            if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
-                start_d, end_d = date_range
-            else:
-                start_d, end_d = min_d, max_d
-        else:
-            start_d, end_d = None, None
-            st.caption("Date dimension bounds unavailable.")
-        try:
-            states = data_client().state_names()
-        except Exception:
-            states = []
-        state_options = ["All US"] + states
-        selected_state = st.selectbox("State", state_options)
-        st.divider()
+        st.markdown('<div class="sidebar-section">DATA CONTEXT</div>', unsafe_allow_html=True)
         st.caption(f"Catalog: {CATALOG}")
         st.caption(f"Schema: {SCHEMA}")
+    return page
+
+def render_hero():
+def render_filter_bar():
+    try:
+        min_d, max_d = date_bounds()
+    except Exception:
+        min_d, max_d = None, None
+    try:
+        states = data_client().state_names()
+    except Exception:
+        states = []
+
+    st.markdown('<div class="filter-bar">', unsafe_allow_html=True)
+    with st.form("global_dashboard_filters"):
+        cols = st.columns([1.8, 1.1, .65])
+        with cols[0]:
+            st.markdown("**Date range**")
+            if min_d and max_d:
+                date_range = st.date_input(
+                    "Date range",
+                    value=(min_d, max_d),
+                    min_value=min_d,
+                    max_value=max_d,
+                    label_visibility="collapsed",
+                    key="global_date_range",
+                )
+                if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
+                    start_d, end_d = date_range
+                else:
+                    start_d, end_d = min_d, max_d
+            else:
+                start_d, end_d = None, None
+                st.caption("Date dimension bounds unavailable.")
+        with cols[1]:
+            st.markdown("**State**")
+            state = st.selectbox(
+                "State",
+                ["All US"] + states,
+                label_visibility="collapsed",
+                key="global_state_filter",
+            )
+        with cols[2]:
+            st.markdown("**Apply**")
+            st.form_submit_button("⌕  Apply filters", use_container_width=True, type="primary")
+    st.markdown('</div>', unsafe_allow_html=True)
+    refresh_col, _ = st.columns([.18, .82])
+    with refresh_col:
         if st.button("↻ Refresh data", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
-    return page, start_d, end_d, selected_state
+    return start_d, end_d, state
 
 def render_dashboard(start_d, end_d, state):
     st.markdown("""
@@ -436,7 +463,10 @@ try:
     missing=sorted(expected-set(available))
     if missing:
         st.warning("Expected tables not found in configured schema: "+", ".join(missing))
-    page,start_d,end_d,state=filters()
+    page=filters()
+    if page=="Executive Dashboard":
+        render_hero()
+    start_d,end_d,state=render_filter_bar()
     if page=="Executive Dashboard": render_dashboard(start_d,end_d,state)
     elif page=="Energy Generation": render_generation(start_d,end_d,state)
     elif page=="Transmission & Distribution": render_grid(start_d,end_d,state)
