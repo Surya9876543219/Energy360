@@ -14,7 +14,11 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 .stApp{background:#F4F7FB;color:#17324D}
-.block-container{padding-top:.55rem;padding-bottom:2rem;max-width:1720px}
+.block-container{padding-top:.55rem;padding-bottom:2rem;max-width:none!important;width:100%!important;margin-left:0!important;margin-right:0!important;box-sizing:border-box}
+[data-testid="stMainBlockContainer"],.stMainBlockContainer,section[data-testid="stMain"] .block-container{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important;padding-left:clamp(1rem,2vw,2rem)!important;padding-right:clamp(1rem,2vw,2rem)!important;box-sizing:border-box!important}
+[data-testid="stMain"]{min-width:0!important}
+[data-testid="stAppViewContainer"]{width:100%!important}
+
 [data-testid="stSidebar"]{background:linear-gradient(180deg,#031D36 0%,#0B2D4B 55%,#123C5D 100%);border-right:1px solid #D7E2EC}
 [data-testid="stSidebar"]>div{padding-top:1rem}
 [data-testid="stSidebar"] *{color:#F4F8FC}
