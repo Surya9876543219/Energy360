@@ -37,7 +37,7 @@ html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 .hero-banner:after{content:"";position:absolute;inset:0 0 0 42%;background-image:linear-gradient(90deg,rgba(5,35,66,.10),rgba(5,35,66,.04)),url("https://www.acer.europa.eu/sites/default/files/2024-03/ELE_KD_0.jpg");background-size:cover;background-position:center 54%;pointer-events:none}
 .hero-banner{min-height:118px;padding:18px 24px;margin:0 -1rem 10px;border-left:5px solid #17C2D2;border-radius:0}
 .hero-content{max-width:62%;text-shadow:0 1px 2px rgba(0,0,0,.12)}
-[data-testid="stSidebar"]{width:18rem!important;min-width:18rem!important}
+/* Let Streamlit control sidebar width so the main panel can reclaim space when collapsed. */
 [data-testid="stSidebar"] [data-testid="stSidebarContent"]{background:transparent}
 .utility-bar{height:42px;margin:0 -1rem 0;padding-right:20px}
 @media(max-width:900px){.hero-banner:after{left:30%;opacity:.55}.hero-content{max-width:80%}.hero-title{font-size:1.45rem}.hero-subtitle{font-size:.78rem}}
