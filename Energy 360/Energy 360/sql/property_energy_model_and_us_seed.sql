@@ -382,6 +382,16 @@ VALUES (s.contract_id,s.contract_number,s.contract_name,s.supplier_vendor_id,s.b
  s.commodity_id,s.rate_class_id,s.rate_schedule_id,DATE'2026-01-01',DATE'2026-12-31',FALSE,60,30,'Fixed','USD',
  s.estimated_annual_value,'Net 30','Active',DATE'2025-12-15','Fictional test contract only.',current_timestamp(),current_timestamp());
 
+-- Attach each rate schedule to the corresponding supplier contract.
+UPDATE dim_rate_schedule
+SET contract_id = CASE rate_schedule_id
+  WHEN 'RS-ELEC-2026' THEN 'CON-ELEC-2026'
+  WHEN 'RS-GAS-2026' THEN 'CON-GAS-2026'
+  WHEN 'RS-WATER-2026' THEN 'CON-WATER-2026'
+  ELSE contract_id
+END
+WHERE rate_schedule_id IN ('RS-ELEC-2026','RS-GAS-2026','RS-WATER-2026');
+
 MERGE INTO bridge_property_contract t
 USING (SELECT p.property_id,c.contract_id,concat('PC-',p.property_id,'-',c.contract_id) property_contract_id
        FROM dim_property p CROSS JOIN dim_contract c WHERE p.property_id LIKE 'PROP-%') s
