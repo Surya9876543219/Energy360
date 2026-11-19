@@ -234,6 +234,8 @@ def plotly_drilldown(fig, detail_df, key, detail_title, detail_column=None):
     selected = []
     for point in points:
         custom = point.get("customdata")
+        if hasattr(custom, "tolist"):
+            custom = custom.tolist()
         value = custom[0] if isinstance(custom, (list, tuple)) and custom else custom
         if value is not None:
             selected.append(str(value))
@@ -571,7 +573,7 @@ def render_geography(start_d,end_d):
                            hover_data=["generation_mwh","consumption_mwh","gridavailabilitypct"])
         fig.update_geos(fitbounds="locations",visible=False,showland=True,landcolor="#F2F7FB")
         fig.update_layout(height=520,margin=dict(l=0,r=0,t=10,b=0))
-        st.plotly_chart(fig,use_container_width=True)
+        plotly_drilldown(fig,df,"geo_state_detail","state energy summary","statekey")
     show_df(df,"State-wise energy summary")
 
 def render_forecasting(start_d,end_d,state):
