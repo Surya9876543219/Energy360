@@ -11,10 +11,16 @@ st.set_page_config(page_title="Energy 360 | Enterprise Energy Management", page_
 # ------------------------- Styling -------------------------
 st.markdown("""
 <style>
+
+/* Remove Streamlit's reserved top header/toolbar strip so the page hero starts at the top. */
+[data-testid="stHeader"],header[data-testid="stHeader"],[data-testid="stToolbar"]{display:none!important;height:0!important;min-height:0!important}
+[data-testid="stAppViewContainer"] .main{padding-top:0!important;margin-top:0!important}
+section[data-testid="stMain"]{padding-top:0!important}
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 .stApp{background:#F4F7FB;color:#17324D}
-.block-container{padding-top:.55rem;padding-bottom:2rem;max-width:none!important;width:100%!important;margin-left:0!important;margin-right:0!important;box-sizing:border-box}
+.block-container{padding-top:0!important;padding-bottom:2rem;max-width:none!important;width:100%!important;margin-left:0!important;margin-right:0!important;box-sizing:border-box}
 [data-testid="stMainBlockContainer"],.stMainBlockContainer,section[data-testid="stMain"] .block-container{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important;padding-left:clamp(1rem,2vw,2rem)!important;padding-right:clamp(1rem,2vw,2rem)!important;box-sizing:border-box!important}
 [data-testid="stMain"]{min-width:0!important}
 [data-testid="stAppViewContainer"]{width:100%!important}
@@ -30,7 +36,7 @@ html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 [data-testid="stSidebar"] .stButton>button{width:100%;text-align:left;justify-content:flex-start;background:transparent;color:#F4F8FC;border:1px solid transparent;border-radius:8px;padding:.52rem .68rem;font-size:.88rem;font-weight:600}
 [data-testid="stSidebar"] .stButton>button:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.18);color:#FFFFFF}
 [data-testid="stSidebar"] .stButton>button[kind="primary"]{background:linear-gradient(90deg,#0AA6BD,#0794B5);border-color:#27C3D4;color:#FFFFFF}
-.utility-bar{height:43px;background:#FFFFFF;border-bottom:1px solid #E4EBF2;display:flex;align-items:center;justify-content:flex-end;gap:22px;padding:0 14px;margin:0 -1rem 0}
+
 .utility-item{font-size:1rem;color:#173A59;font-weight:700}
 .utility-avatar{background:#0DB7C8;color:#FFFFFF;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800}
 .hero-banner{position:relative;overflow:hidden;background:linear-gradient(90deg,rgba(4,35,65,.98) 0%,rgba(7,49,83,.94) 48%,rgba(8,57,85,.45) 100%),linear-gradient(135deg,#123C5D,#0A2946);padding:22px 26px 22px 28px;margin:0 -1rem 10px;min-height:132px;display:flex;align-items:center;border-left:5px solid #17C2D2}
@@ -39,7 +45,7 @@ html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 .hero-content{max-width:62%;text-shadow:0 1px 2px rgba(0,0,0,.12)}
 /* Let Streamlit control sidebar width so the main panel can reclaim space when collapsed. */
 [data-testid="stSidebar"] [data-testid="stSidebarContent"]{background:transparent}
-.utility-bar{height:42px;margin:0 -1rem 0;padding-right:20px}
+
 @media(max-width:900px){.hero-banner:after{left:30%;opacity:.55}.hero-content{max-width:80%}.hero-title{font-size:1.45rem}.hero-subtitle{font-size:.78rem}}
 .hero-content{position:relative;z-index:1}
 .hero-title{color:#FFFFFF;font-size:2.05rem;font-weight:850;letter-spacing:-.8px;line-height:1.15}
@@ -611,10 +617,14 @@ try:
     missing=sorted(expected-set(available))
     if missing:
         st.warning("Expected tables not found in configured schema: "+", ".join(missing))
-    render_utility_bar()
     page=filters()
     render_hero(page)
-    start_d,end_d,state=render_filter_bar()
+    # Global filter pane removed: use the full available date range and all US states.
+    try:
+        start_d, end_d = date_bounds()
+    except Exception:
+        start_d, end_d = None, None
+    state = "All US"
     if page=="Executive Dashboard": render_dashboard(start_d,end_d,state)
     elif page=="Energy Generation": render_generation(start_d,end_d,state)
     elif page=="Transmission & Distribution": render_grid(start_d,end_d,state)
