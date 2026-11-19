@@ -13,7 +13,11 @@ st.markdown("""
 <style>
 
 /* Remove Streamlit's reserved top header/toolbar strip so the page hero starts at the top. */
-[data-testid="stHeader"],header[data-testid="stHeader"],[data-testid="stToolbar"]{display:none!important;height:0!important;min-height:0!important}
+/* Keep Streamlit's sidebar collapse/expand control visible without reserving a tall top header. */
+[data-testid="stHeader"],header[data-testid="stHeader"]{display:block!important;visibility:visible!important;height:0!important;min-height:0!important;padding:0!important;margin:0!important;background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important;position:relative!important;z-index:100000!important}
+[data-testid="stToolbar"]{display:none!important;height:0!important;min-height:0!important}
+[data-testid="stSidebarCollapseButton"],[data-testid="stSidebarExpandButton"]{display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:relative!important;z-index:100001!important}
+[data-testid="stSidebarCollapseButton"] button,[data-testid="stSidebarExpandButton"] button{visibility:visible!important;opacity:1!important;pointer-events:auto!important;color:#173A59!important;background:#FFFFFF!important;border:1px solid #DCE6EF!important;border-radius:7px!important}
 [data-testid="stAppViewContainer"] .main{padding-top:0!important;margin-top:0!important}
 section[data-testid="stMain"]{padding-top:0!important}
 
