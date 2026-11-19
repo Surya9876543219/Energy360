@@ -35,7 +35,7 @@ html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 .utility-avatar{background:#0DB7C8;color:#FFFFFF;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800}
 .hero-banner{position:relative;overflow:hidden;background:linear-gradient(90deg,rgba(4,35,65,.98) 0%,rgba(7,49,83,.94) 48%,rgba(8,57,85,.45) 100%),linear-gradient(135deg,#123C5D,#0A2946);padding:22px 26px 22px 28px;margin:0 -1rem 10px;min-height:132px;display:flex;align-items:center;border-left:5px solid #17C2D2}
 .hero-banner:after{content:"";position:absolute;inset:0 0 0 42%;background-image:linear-gradient(90deg,rgba(5,35,66,.10),rgba(5,35,66,.04)),url("https://www.acer.europa.eu/sites/default/files/2024-03/ELE_KD_0.jpg");background-size:cover;background-position:center 54%;pointer-events:none}
-.hero-banner{min-height:118px;padding:18px 24px;margin:0 -1rem 10px;border-left:5px solid #17C2D2;border-radius:0}
+.hero-banner{min-height:118px;padding:18px 24px;margin:0 calc(-1 * clamp(1rem,2vw,2rem)) 10px;border-left:5px solid #17C2D2;border-radius:0}
 .hero-content{max-width:62%;text-shadow:0 1px 2px rgba(0,0,0,.12)}
 /* Let Streamlit control sidebar width so the main panel can reclaim space when collapsed. */
 [data-testid="stSidebar"] [data-testid="stSidebarContent"]{background:transparent}
@@ -217,6 +217,38 @@ def render_hero(page):
         unsafe_allow_html=True,
     )
 
+
+def plotly_drilldown(fig, detail_df, key, detail_title, detail_column=None):
+    """Clickable Plotly selection with matching underlying rows and CSV export."""
+    if detail_df is None or detail_df.empty:
+        st.plotly_chart(fig, use_container_width=True, key=key)
+        return
+    try:
+        event = st.plotly_chart(fig, use_container_width=True, key=key,
+                                on_select="rerun", selection_mode="points")
+        points = event.selection.points if event and hasattr(event, "selection") else []
+    except TypeError:
+        st.plotly_chart(fig, use_container_width=True, key=key)
+        st.caption("Chart drill-through requires Streamlit 1.40 or newer.")
+        return
+    selected = []
+    for point in points:
+        custom = point.get("customdata")
+        value = custom[0] if isinstance(custom, (list, tuple)) and custom else custom
+        if value is not None:
+            selected.append(str(value))
+    if selected and detail_column and detail_column in detail_df.columns:
+        matched = detail_df[detail_df[detail_column].astype(str).isin(set(selected))]
+        with st.expander(f"Drill-through: {detail_title} ({len(matched):,} records)", expanded=True):
+            st.dataframe(matched, use_container_width=True, hide_index=True)
+            st.download_button(f"Download {detail_title} detail",
+                matched.to_csv(index=False).encode("utf-8"),
+                file_name=f"energy360_{key}_detail.csv", mime="text/csv",
+                key=f"{key}_download")
+    else:
+        st.caption("Select a point, bar or chart segment to view its underlying records.")
+
+
 def render_filter_bar():
     try:
         min_d, max_d = date_bounds()
@@ -322,9 +354,10 @@ def render_dashboard(start_d, end_d, state):
         trend = data["trend"]
         if not trend.empty:
             long = trend.melt(id_vars="date", value_vars=["generation_mwh","consumption_mwh"], var_name="metric", value_name="mwh")
+            long["drill_date"] = long["date"].astype(str)
             long["metric"] = long["metric"].map({"generation_mwh":"Generation","consumption_mwh":"Consumption"})
             fig = px.line(
-                long, x="date", y="mwh", color="metric", markers=True,
+                long, x="date", y="mwh", color="metric", markers=True, custom_data=["drill_date"],
                 color_discrete_map={"Generation":"#1976D2","Consumption":"#25A55B"},
             )
             fig.update_traces(line_width=2.5, marker_size=6)
@@ -335,7 +368,8 @@ def render_dashboard(start_d, end_d, state):
             )
             fig.update_xaxes(showgrid=False,zeroline=False)
             fig.update_yaxes(gridcolor="#E7EEF4",zeroline=False,title="Energy (MWh)")
-            st.plotly_chart(fig,use_container_width=True)
+            drill = pd.concat([data["generation"].assign(drill_date=data["generation"]["date"].astype(str)), data["consumption"].assign(drill_date=data["consumption"]["date"].astype(str))], ignore_index=True, sort=False)
+            plotly_drilldown(fig, drill, "dash_generation_consumption", "generation and consumption by date", "drill_date")
         else:
             st.info("No generation/consumption trend rows for this filter.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -350,12 +384,12 @@ def render_dashboard(start_d, end_d, state):
             pie_col, table_col = st.columns([.95, 1.15])
             with pie_col:
                 fig = px.pie(
-                    by_source,names="energysource",values="generation_mwh",hole=.58,
+                    by_source,names="energysource",values="generation_mwh",hole=.58,custom_data=["energysource"],
                     color_discrete_sequence=["#1976D2","#25A55B","#F3B53F","#8A55D8","#14B8C4","#9AA8B5"],
                 )
                 fig.update_traces(textposition="inside",textinfo="percent",hole=.58)
                 fig.update_layout(height=330,margin=dict(l=0,r=0,t=8,b=0),showlegend=False,paper_bgcolor="white")
-                st.plotly_chart(fig,use_container_width=True)
+                plotly_drilldown(fig, data["generation"], "dash_source_mix", "generation by energy source", "energysource")
             with table_col:
                 display_source = by_source[["energysource","generation_mwh","share_pct"]].copy()
                 display_source["generation_mwh"] = display_source["generation_mwh"].map(lambda x: f"{x/1000:,.2f}")
@@ -373,21 +407,21 @@ def render_dashboard(start_d, end_d, state):
         if not states.empty and {"latitude","longitude"}.issubset(states.columns):
             fig = px.scatter_geo(states,lat="latitude",lon="longitude",size="generation_mwh",
                                  color="generation_mwh",hover_name="statename",
-                                 hover_data={"generation_mwh":":,.0f","latitude":False,"longitude":False},
+                                 hover_data={"generation_mwh":":,.0f","latitude":False,"longitude":False}, custom_data=["statekey"],
                                  scope="usa",color_continuous_scale=["#BFE7D0","#1976D2"])
             fig.update_geos(fitbounds="locations",visible=False,showland=True,landcolor="#F2F7FB",
                             showcountries=True,countrycolor="#CBD8E5",showocean=True,oceancolor="#FFFFFF")
             fig.update_layout(height=360,margin=dict(l=0,r=0,t=0,b=0),paper_bgcolor="white")
-            st.plotly_chart(fig,use_container_width=True)
+            plotly_drilldown(fig, data["generation"], "dash_state_generation", "state generation", "statekey")
         else:
             st.info("State map requires coordinates in dim_state and matching state keys in generation.")
     with c4:
         st.subheader("Grid performance by state")
         if not data["grid_by_state"].empty:
-            fig = px.bar(data["grid_by_state"],x="statename",y="gridavailabilitypct",
+            fig = px.bar(data["grid_by_state"],x="statename",y="gridavailabilitypct",custom_data=["statename"],
                          color="gridavailabilitypct",color_continuous_scale=["#F3B53F","#25A55B"])
             fig.update_layout(height=360,margin=dict(l=5,r=5,t=10,b=5),xaxis_title="",yaxis_title="Availability (%)",coloraxis_showscale=False)
-            st.plotly_chart(fig,use_container_width=True)
+            plotly_drilldown(fig, data["grid"], "dash_grid_state", "grid performance by state", "statename")
         else:
             st.info("No state-wise grid records available.")
 
@@ -408,12 +442,14 @@ def render_generation(start_d,end_d,state):
     a,b = st.columns(2)
     with a:
         agg=df.groupby("energysource",as_index=False)["generation_mwh"].sum()
-        fig=px.bar(agg,x="energysource",y="generation_mwh",color="energysource",title="Generation by source")
-        st.plotly_chart(fig,use_container_width=True)
+        fig=px.bar(agg,x="energysource",y="generation_mwh",color="energysource",custom_data=["energysource"],title="Generation by source")
+        plotly_drilldown(fig,df,"gen_source_detail","generation by source","energysource")
     with b:
         trend=df.groupby("date",as_index=False)[["generation_mwh","targetgeneration_mwh"]].sum()
-        fig=px.line(trend,x="date",y=["generation_mwh","targetgeneration_mwh"],markers=True,title="Actual vs target")
-        st.plotly_chart(fig,use_container_width=True)
+        trend["drill_date"]=trend["date"].astype(str)
+        fig=px.line(trend,x="date",y=["generation_mwh","targetgeneration_mwh"],markers=True,custom_data=["drill_date"],title="Actual vs target")
+        df["drill_date"]=df["date"].astype(str)
+        plotly_drilldown(fig,df,"gen_actual_target","generation by date","drill_date")
     show_df(df,"Generation detail")
 
 def render_consumption(start_d,end_d,state):
@@ -430,10 +466,14 @@ def render_consumption(start_d,end_d,state):
     a,b=st.columns(2)
     with a:
         sector=df.groupby("consumersector",as_index=False)["consumption_mwh"].sum()
-        st.plotly_chart(px.pie(sector,names="consumersector",values="consumption_mwh",hole=.55,title="Consumption by sector"),use_container_width=True)
+        fig=px.pie(sector,names="consumersector",values="consumption_mwh",hole=.55,custom_data=["consumersector"],title="Consumption by sector")
+        plotly_drilldown(fig,df,"cons_sector_detail","consumption by sector","consumersector")
     with b:
         trend=df.groupby("date",as_index=False)["consumption_mwh"].sum()
-        st.plotly_chart(px.line(trend,x="date",y="consumption_mwh",markers=True,title="Consumption trend"),use_container_width=True)
+        trend["drill_date"]=trend["date"].astype(str)
+        fig=px.line(trend,x="date",y="consumption_mwh",markers=True,custom_data=["drill_date"],title="Consumption trend")
+        df["drill_date"]=df["date"].astype(str)
+        plotly_drilldown(fig,df,"cons_trend_detail","consumption by date","drill_date")
     show_df(df,"Consumption detail")
 
 def render_grid(start_d,end_d,state):
@@ -447,9 +487,14 @@ def render_grid(start_d,end_d,state):
                 ("SAIDI",f"{df.saidi_hours.mean():.2f} hours",None)])
     a,b=st.columns(2)
     with a:
-        st.plotly_chart(px.line(df.groupby("date",as_index=False)["gridavailabilitypct"].mean(),x="date",y="gridavailabilitypct",markers=True,title="Grid availability trend"),use_container_width=True)
+        trend=df.groupby("date",as_index=False)["gridavailabilitypct"].mean(); trend["drill_date"]=trend["date"].astype(str)
+        fig=px.line(trend,x="date",y="gridavailabilitypct",markers=True,custom_data=["drill_date"],title="Grid availability trend")
+        df["drill_date"]=df["date"].astype(str)
+        plotly_drilldown(fig,df,"grid_trend_detail","grid performance by date","drill_date")
     with b:
-        st.plotly_chart(px.bar(df.groupby("statename",as_index=False)["transmissionlosspct"].mean(),x="statename",y="transmissionlosspct",title="Average transmission loss by state"),use_container_width=True)
+        state_loss=df.groupby("statename",as_index=False)["transmissionlosspct"].mean()
+        fig=px.bar(state_loss,x="statename",y="transmissionlosspct",custom_data=["statename"],title="Average transmission loss by state")
+        plotly_drilldown(fig,df,"grid_state_detail","grid records by state","statename")
     show_df(df,"Grid performance detail")
 
 def render_assets(start_d,end_d,state):
@@ -463,10 +508,13 @@ def render_assets(start_d,end_d,state):
                 ("Maintenance Events",f"{df.maintenanceevents.sum():,.0f}",None)])
     a,b=st.columns(2)
     with a:
-        st.plotly_chart(px.bar(df.groupby("assetname",as_index=False)["assethealthscore"].mean(),x="assetname",y="assethealthscore",color="assethealthscore",title="Asset health score"),use_container_width=True)
+        asset_health=df.groupby("assetname",as_index=False)["assethealthscore"].mean()
+        fig=px.bar(asset_health,x="assetname",y="assethealthscore",color="assethealthscore",custom_data=["assetname"],title="Asset health score")
+        plotly_drilldown(fig,df,"asset_health_detail","asset performance","assetname")
     with b:
         status=df.groupby("operationalstatus",as_index=False).size()
-        st.plotly_chart(px.pie(status,names="operationalstatus",values="size",hole=.55,title="Operational status"),use_container_width=True)
+        fig=px.pie(status,names="operationalstatus",values="size",hole=.55,custom_data=["operationalstatus"],title="Operational status")
+        plotly_drilldown(fig,df,"asset_status_detail","asset operational status","operationalstatus")
     show_df(df,"Asset performance detail")
 
 def render_sustainability(start_d,end_d,state):
@@ -480,10 +528,15 @@ def render_sustainability(start_d,end_d,state):
                 ("Carbon Reduction Target",f"{df.carbonreductiontargetpct.mean():.2f}%",None)])
     a,b=st.columns(2)
     with a:
-        st.plotly_chart(px.bar(df.groupby("energysource",as_index=False)["emissions_tco2e"].sum(),x="energysource",y="emissions_tco2e",color="energysource",title="Emissions by energy source"),use_container_width=True)
+        em_source=df.groupby("energysource",as_index=False)["emissions_tco2e"].sum()
+        fig=px.bar(em_source,x="energysource",y="emissions_tco2e",color="energysource",custom_data=["energysource"],title="Emissions by energy source")
+        plotly_drilldown(fig,df,"em_source_detail","emissions by energy source","energysource")
     with b:
         trend=df.groupby("date",as_index=False)["emissions_tco2e"].sum()
-        st.plotly_chart(px.line(trend,x="date",y="emissions_tco2e",markers=True,title="Emissions trend"),use_container_width=True)
+        trend["drill_date"]=trend["date"].astype(str)
+        fig=px.line(trend,x="date",y="emissions_tco2e",markers=True,custom_data=["drill_date"],title="Emissions trend")
+        df["drill_date"]=df["date"].astype(str)
+        plotly_drilldown(fig,df,"em_trend_detail","emissions by date","drill_date")
     show_df(df,"Emissions detail")
 
 def render_costs(start_d,end_d,state):
@@ -497,9 +550,14 @@ def render_costs(start_d,end_d,state):
                 ("Gross Margin",fmt_usd(df.grossmargin_inr.sum()),None)])
     a,b=st.columns(2)
     with a:
-        st.plotly_chart(px.bar(df.groupby("energysource",as_index=False)["totalcost_inr"].sum(),x="energysource",y="totalcost_inr",color="energysource",title="Cost by source"),use_container_width=True)
+        cost_source=df.groupby("energysource",as_index=False)["totalcost_inr"].sum()
+        fig=px.bar(cost_source,x="energysource",y="totalcost_inr",color="energysource",custom_data=["energysource"],title="Cost by source")
+        plotly_drilldown(fig,df,"cost_source_detail","energy cost by source","energysource")
     with b:
-        st.plotly_chart(px.line(df.groupby("date",as_index=False)[["totalcost_inr","revenue_inr"]].sum(),x="date",y=["totalcost_inr","revenue_inr"],markers=True,title="Cost vs revenue"),use_container_width=True)
+        cost_trend=df.groupby("date",as_index=False)[["totalcost_inr","revenue_inr"]].sum(); cost_trend["drill_date"]=cost_trend["date"].astype(str)
+        fig=px.line(cost_trend,x="date",y=["totalcost_inr","revenue_inr"],markers=True,custom_data=["drill_date"],title="Cost vs revenue")
+        df["drill_date"]=df["date"].astype(str)
+        plotly_drilldown(fig,df,"cost_trend_detail","energy cost by date","drill_date")
     show_df(df,"Energy cost detail")
 
 def render_geography(start_d,end_d):
@@ -522,7 +580,10 @@ def render_forecasting(start_d,end_d,state):
     df=get_generation_data(start_d,end_d,state)
     if not df.empty:
         trend=df.groupby("date",as_index=False)["generation_mwh"].sum()
-        st.plotly_chart(px.line(trend,x="date",y="generation_mwh",markers=True,title="Historical generation (actuals only)"),use_container_width=True)
+        trend["drill_date"]=trend["date"].astype(str)
+        fig=px.line(trend,x="date",y="generation_mwh",markers=True,custom_data=["drill_date"],title="Historical generation (actuals only)")
+        df["drill_date"]=df["date"].astype(str)
+        plotly_drilldown(fig,df,"forecast_actual_detail","historical generation by date","drill_date")
         show_df(df,"Generation history")
 
 def render_reports(start_d,end_d,state):
