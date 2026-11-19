@@ -12,12 +12,34 @@ st.set_page_config(page_title="Energy 360 | Enterprise Energy Management", page_
 st.markdown("""
 <style>
 
-/* Remove Streamlit's reserved top header/toolbar strip so the page hero starts at the top. */
-/* Keep Streamlit's sidebar collapse/expand control visible without reserving a tall top header. */
-[data-testid="stHeader"],header[data-testid="stHeader"]{display:block!important;visibility:visible!important;height:0!important;min-height:0!important;padding:0!important;margin:0!important;background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important;position:relative!important;z-index:100000!important}
-[data-testid="stToolbar"]{display:none!important;height:0!important;min-height:0!important}
-[data-testid="stSidebarCollapseButton"],[data-testid="stSidebarExpandButton"]{display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:relative!important;z-index:100001!important}
-[data-testid="stSidebarCollapseButton"] button,[data-testid="stSidebarExpandButton"] button{visibility:visible!important;opacity:1!important;pointer-events:auto!important;color:#173A59!important;background:#FFFFFF!important;border:1px solid #DCE6EF!important;border-radius:7px!important}
+/* Keep the native Streamlit sidebar toggle available as a floating control.
+   The header overlays the page instead of reserving vertical space. */
+header[data-testid="stHeader"],[data-testid="stHeader"]{
+ display:flex!important;visibility:visible!important;opacity:1!important;
+ position:fixed!important;top:0!important;left:0!important;right:0!important;
+ width:100%!important;height:2.75rem!important;min-height:2.75rem!important;
+ padding:0!important;margin:0!important;background:transparent!important;
+ border:0!important;box-shadow:none!important;overflow:visible!important;
+ z-index:100000!important;pointer-events:none!important
+}
+[data-testid="stHeader"] [data-testid="stToolbar"]{
+ display:flex!important;visibility:visible!important;opacity:1!important;
+ height:2.75rem!important;min-height:2.75rem!important;
+ pointer-events:auto!important;background:transparent!important
+}
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarExpandButton"],
+[data-testid="stSidebarCollapsedControl"]{
+ display:flex!important;visibility:visible!important;opacity:1!important;
+ pointer-events:auto!important;position:relative!important;z-index:100002!important
+}
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stSidebarExpandButton"] button,
+[data-testid="stSidebarCollapsedControl"] button{
+ display:flex!important;visibility:visible!important;opacity:1!important;
+ pointer-events:auto!important;color:#173A59!important;background:#FFFFFF!important;
+ border:1px solid #DCE6EF!important;border-radius:7px!important
+}
 [data-testid="stAppViewContainer"] .main{padding-top:0!important;margin-top:0!important}
 section[data-testid="stMain"]{padding-top:0!important}
 
