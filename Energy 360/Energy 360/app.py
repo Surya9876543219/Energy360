@@ -669,6 +669,172 @@ def render_reports(start_d,end_d,state):
     df=loaders[report](start_d,end_d,state)
     show_df(df,f"{report} report",10000)
 
+def render_property_energy_management():
+    page_heading(
+        "Property Energy Management",
+        "Property-level energy usage, meters, utility accounts, suppliers, rate details, contracts and procurement.",
+    )
+    try:
+        properties = get_property_list()
+    except DataAccessError as exc:
+        st.error("Could not load the property master. Confirm that the property SQL script has been deployed.")
+        st.code(str(exc))
+        return
+
+    if properties.empty:
+        st.warning("No properties were found in dim_property.")
+        return
+
+    property_ids = properties["property_id"].astype(str).tolist()
+
+    def property_label(pid):
+        row = properties.loc[properties["property_id"].astype(str) == str(pid)].iloc[0]
+        city_state = ", ".join(
+            str(value) for value in [row.get("city"), row.get("state_code")]
+            if pd.notna(value) and str(value).strip()
+        )
+        return f"{row.get('property_name', pid)} | {city_state} | {pid}"
+
+    default_id = st.session_state.get("selected_energy_property", property_ids[0])
+    if default_id not in property_ids:
+        default_id = property_ids[0]
+    selected_id = st.selectbox(
+        "Select property", property_ids, index=property_ids.index(default_id),
+        format_func=property_label, key="property_energy_selector",
+    )
+    st.session_state["selected_energy_property"] = selected_id
+    prop = properties.loc[properties["property_id"].astype(str) == selected_id].iloc[0]
+
+    try:
+        energy = get_property_energy(selected_id)
+        meters = get_property_meters(selected_id)
+        accounts = get_property_accounts(selected_id)
+        vendors = get_property_vendors(selected_id)
+        rates = get_property_rates(selected_id)
+        contracts = get_property_contracts(selected_id)
+        bills = get_property_bills(selected_id)
+        procurement = get_property_procurement(selected_id)
+    except DataAccessError as exc:
+        st.error("Could not load this property's related records.")
+        st.code(str(exc))
+        return
+
+    area = prop.get("gross_area_sqft")
+    area_text = f"{float(area):,.0f} gross sq. ft." if pd.notna(area) else "Area not provided"
+    st.markdown(
+        f"**{prop.get('property_type') or 'Property'}** · "
+        f"{prop.get('address_line_1') or ''} · "
+        f"{prop.get('city') or ''}, {prop.get('state_code') or ''} "
+        f"{prop.get('postal_code') or ''} · {area_text}"
+    )
+    st.caption(
+        f"Property ID: {selected_id} | Status: {prop.get('operating_status') or 'Not specified'} | "
+        f"Manager: {prop.get('property_manager') or 'Not assigned'}"
+    )
+
+    total_cost = float(energy["cost_amount"].fillna(0).sum()) if not energy.empty else 0.0
+    meter_count = int(meters["meter_id"].nunique()) if not meters.empty else 0
+    account_count = int(accounts["utility_account_id"].nunique()) if not accounts.empty else 0
+    contract_count = int(contracts["contract_id"].nunique()) if not contracts.empty else 0
+    metric_row([
+        ("Energy Cost", fmt_usd(total_cost), "Sum of recorded property energy costs."),
+        ("Meters", f"{meter_count:,}", None),
+        ("Utility Accounts", f"{account_count:,}", None),
+        ("Supplier Contracts", f"{contract_count:,}", None),
+    ])
+
+    st.subheader("Commodity consumption")
+    if energy.empty:
+        st.info("No energy usage records exist for this property.")
+    else:
+        totals = (
+            energy.groupby(["commodity_name", "usage_unit"], dropna=False, as_index=False)
+            .agg(total_usage=("usage_quantity", "sum"),
+                 total_cost=("cost_amount", "sum"),
+                 records=("property_energy_usage_id", "count"))
+        )
+        cols = st.columns(max(1, min(3, len(totals))))
+        for col, (_, row) in zip(cols, totals.iterrows()):
+            with col:
+                st.metric(
+                    f"{row['commodity_name']} ({row['usage_unit']})",
+                    fmt_num(row["total_usage"], 2),
+                    help=f"{int(row['records'])} usage records | {fmt_usd(row['total_cost'])}",
+                )
+
+        left, right = st.columns([1.35, 1])
+        with left:
+            st.markdown("**Monthly consumption trend**")
+            commodities = totals["commodity_name"].dropna().astype(str).tolist()
+            chosen = st.selectbox(
+                "Commodity for trend", commodities,
+                key=f"property_commodity_trend_{selected_id}",
+            )
+            selected_energy = energy[energy["commodity_name"] == chosen].copy()
+            trend = (
+                selected_energy.groupby("period_start_date", as_index=False)["usage_quantity"]
+                .sum().sort_values("period_start_date")
+            )
+            if not trend.empty:
+                unit_values = selected_energy["usage_unit"].dropna()
+                unit = str(unit_values.iloc[0]) if not unit_values.empty else ""
+                fig = px.line(
+                    trend, x="period_start_date", y="usage_quantity", markers=True,
+                    title=f"{chosen} usage ({unit})",
+                )
+                fig.update_traces(line_color="#0878D1", line_width=3, marker_size=7)
+                fig.update_layout(
+                    height=330, margin=dict(l=10, r=10, t=45, b=10),
+                    paper_bgcolor="white", plot_bgcolor="white",
+                )
+                fig.update_yaxes(title=unit, gridcolor="#E7EEF4")
+                fig.update_xaxes(title="")
+                st.plotly_chart(fig, use_container_width=True, key=f"property_usage_{selected_id}")
+        with right:
+            st.markdown("**Energy cost by commodity**")
+            cost_data = totals[["commodity_name", "total_cost"]].copy()
+            fig = px.bar(cost_data, x="commodity_name", y="total_cost",
+                         color="commodity_name", title="Cost (USD)")
+            fig.update_layout(
+                showlegend=False, height=330, margin=dict(l=10, r=10, t=45, b=10),
+                paper_bgcolor="white", plot_bgcolor="white",
+            )
+            fig.update_yaxes(title="USD", tickprefix="$", gridcolor="#E7EEF4")
+            fig.update_xaxes(title="")
+            st.plotly_chart(fig, use_container_width=True, key=f"property_cost_{selected_id}")
+
+    st.subheader("Property operations")
+    tabs = st.tabs([
+        "Meters & Readings", "Utility Accounts", "Vendors", "Rate Details",
+        "Contracts", "Bills", "Procurement",
+    ])
+    tab_data = [
+        (meters, "Meter inventory"),
+        (accounts, "Utility accounts"),
+        (vendors, "Vendors and suppliers"),
+        (rates, "Rate schedules and components"),
+        (contracts, "Supplier contracts"),
+        (bills, "Utility bills"),
+        (procurement, "Purchase orders, invoices and payments"),
+    ]
+    for tab, (frame, title) in zip(tabs, tab_data):
+        with tab:
+            if frame is None or frame.empty:
+                st.info(f"No {title.lower()} records are linked to this property.")
+            else:
+                st.dataframe(frame, use_container_width=True, hide_index=True)
+                st.download_button(
+                    f"Download {title} CSV",
+                    frame.to_csv(index=False).encode("utf-8"),
+                    file_name=f"energy360_{selected_id}_{title.lower().replace(' ', '_')}.csv",
+                    mime="text/csv",
+                    key=f"property_download_{selected_id}_{title.replace(' ', '_')}",
+                )
+
+    with st.expander("Property energy usage records"):
+        show_df(energy, "Property energy usage", 10000)
+
+
 # ------------------------- App entry -------------------------
 try:
     with st.spinner("Connecting to Databricks SQL Warehouse..."):
@@ -693,6 +859,7 @@ try:
     elif page=="Energy Generation": render_generation(start_d,end_d,state)
     elif page=="Transmission & Distribution": render_grid(start_d,end_d,state)
     elif page=="Energy Consumption": render_consumption(start_d,end_d,state)
+    elif page=="Property Energy Management": render_property_energy_management()
     elif page=="Asset Management": render_assets(start_d,end_d,state)
     elif page=="Forecasting & Analytics": render_forecasting(start_d,end_d,state)
     elif page=="Sustainability": render_sustainability(start_d,end_d,state)
