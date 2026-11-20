@@ -96,7 +96,7 @@ SCHEMA = os.getenv("ENERGY360_SCHEMA", "energy")
 
 PAGES = [
     "Executive Dashboard", "Energy Generation", "Transmission & Distribution",
-    "Energy Consumption", "Asset Management", "Forecasting & Analytics",
+    "Energy Consumption", "Property Energy Management", "Asset Management", "Forecasting & Analytics",
     "Sustainability", "Energy Cost & Trading", "Geographical Analysis",
     "Reports & Insights",
 ]
@@ -145,6 +145,43 @@ def get_cost_data(start_date, end_date, state):
 def get_state_data(start_date, end_date):
     return data_client().state_data(start_date, end_date)
 
+
+@st.cache_data(ttl=180, show_spinner=False)
+def get_property_list():
+    return data_client().property_list()
+
+@st.cache_data(ttl=180, show_spinner=False)
+def get_property_energy(property_id):
+    return data_client().property_energy_data(property_id)
+
+@st.cache_data(ttl=180, show_spinner=False)
+def get_property_meters(property_id):
+    return data_client().property_meter_data(property_id)
+
+@st.cache_data(ttl=180, show_spinner=False)
+def get_property_accounts(property_id):
+    return data_client().property_account_data(property_id)
+
+@st.cache_data(ttl=180, show_spinner=False)
+def get_property_vendors(property_id):
+    return data_client().property_vendor_data(property_id)
+
+@st.cache_data(ttl=180, show_spinner=False)
+def get_property_rates(property_id):
+    return data_client().property_rate_data(property_id)
+
+@st.cache_data(ttl=180, show_spinner=False)
+def get_property_contracts(property_id):
+    return data_client().property_contract_data(property_id)
+
+@st.cache_data(ttl=180, show_spinner=False)
+def get_property_bills(property_id):
+    return data_client().property_bill_data(property_id)
+
+@st.cache_data(ttl=180, show_spinner=False)
+def get_property_procurement(property_id):
+    return data_client().property_procurement_data(property_id)
+
 def fmt_num(v, digits=1):
     return "—" if v is None or pd.isna(v) else f"{v:,.{digits}f}"
 
@@ -181,7 +218,7 @@ def _choose_page(page_name):
 def filters():
     groups = [
         ("OVERVIEW", ["Executive Dashboard"]),
-        ("OPERATIONS", ["Energy Generation", "Transmission & Distribution", "Energy Consumption", "Asset Management", "Forecasting & Analytics"]),
+        ("OPERATIONS", ["Energy Generation", "Transmission & Distribution", "Energy Consumption", "Property Energy Management", "Asset Management", "Forecasting & Analytics"]),
         ("SUSTAINABILITY & MARKETS", ["Sustainability", "Energy Cost & Trading"]),
         ("INSIGHTS", ["Geographical Analysis", "Reports & Insights"]),
     ]
@@ -201,7 +238,7 @@ def filters():
                 icon = {
                     "Executive Dashboard":"◉", "Energy Generation":"▥",
                     "Transmission & Distribution":"⚡", "Energy Consumption":"♧",
-                    "Asset Management":"⚙", "Forecasting & Analytics":"⌁",
+                    "Property Energy Management":"⌂", "Asset Management":"⚙", "Forecasting & Analytics":"⌁",
                     "Sustainability":"❧", "Energy Cost & Trading":"▤",
                     "Geographical Analysis":"⌖", "Reports & Insights":"▣",
                 }.get(page_name, "•")
@@ -233,6 +270,7 @@ def render_hero(page):
         "Energy Generation": "Monitor power generation, plant output and energy-source performance across the United States.",
         "Transmission & Distribution": "Track grid performance, transmission reliability and distribution availability across the United States.",
         "Energy Consumption": "Analyze energy demand, consumption patterns and usage trends across the United States.",
+        "Property Energy Management": "Explore property-level energy usage, meters, utility accounts, suppliers, rates, contracts and procurement.",
         "Asset Management": "Monitor energy assets, operational health, performance and maintenance indicators.",
         "Forecasting & Analytics": "Explore energy trends, historical performance and analytical insights for better planning.",
         "Sustainability": "Track carbon emissions, clean energy contribution and sustainability performance.",
