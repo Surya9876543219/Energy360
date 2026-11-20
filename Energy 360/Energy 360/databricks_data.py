@@ -308,3 +308,167 @@ class EnergyData:
         """)
         states=self.query(f"SELECT statekey,statename,region,statecode,latitude,longitude FROM {q}.dim_state")
         return states.merge(gen,on="statekey",how="left").merge(cons,on="statekey",how="left").merge(grid,on="statekey",how="left").fillna(0)
+
+    # ---------------- Property-centric Energy 360 module ----------------
+    @staticmethod
+    def _sql_string(value):
+        return "'" + str(value).replace("'", "''") + "'"
+
+    def property_list(self):
+        q=self.qschema
+        return self.query(f"""
+            SELECT property_id,property_code,property_name,property_type,ownership_type,
+                   address_line_1,address_line_2,city,county,state_code,state_name,
+                   postal_code,country_code,country_name,timezone,latitude,longitude,
+                   gross_area_sqft,rentable_area_sqft,year_built,operating_status,
+                   acquisition_date,disposition_date,property_manager
+            FROM {q}.dim_property
+            WHERE operating_status IS NULL OR LOWER(operating_status) NOT IN ('disposed','inactive')
+            ORDER BY property_name
+        """)
+
+    def property_energy_data(self,property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT u.property_energy_usage_id,u.property_id,u.meter_id,m.meter_number,
+                   u.utility_account_id,u.commodity_id,c.commodity_name,c.base_unit,
+                   u.vendor_id,v.vendor_name,u.contract_id,u.rate_schedule_id,
+                   u.period_start_date,u.period_end_date,u.usage_quantity,u.usage_unit,
+                   u.peak_demand_quantity,u.peak_demand_unit,u.load_factor_pct,
+                   u.cost_amount,u.currency_code,u.emissions_kg_co2e,u.is_estimated,u.source_system
+            FROM {q}.fact_property_energy_usage u
+            LEFT JOIN {q}.dim_commodity c ON u.commodity_id=c.commodity_id
+            LEFT JOIN {q}.dim_meter m ON u.meter_id=m.meter_id
+            LEFT JOIN {q}.dim_vendor v ON u.vendor_id=v.vendor_id
+            WHERE u.property_id={pid}
+            ORDER BY u.period_start_date,c.commodity_name,m.meter_number
+        """)
+
+    def property_meter_data(self,property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT m.meter_id,m.meter_number,m.meter_name,c.commodity_name,m.meter_type,
+                   m.meter_role,m.unit_of_measure,m.meter_manufacturer,m.meter_model,
+                   m.meter_serial_number,m.installation_date,m.interval_minutes,
+                   m.is_smart_meter,m.meter_status,m.parent_meter_id,m.tenant_space,
+                   m.floor_or_area,a.account_number,v.vendor_name
+            FROM {q}.dim_meter m
+            LEFT JOIN {q}.dim_commodity c ON m.commodity_id=c.commodity_id
+            LEFT JOIN {q}.dim_utility_account a ON m.utility_account_id=a.utility_account_id
+            LEFT JOIN {q}.dim_vendor v ON a.utility_vendor_id=v.vendor_id
+            WHERE m.property_id={pid}
+            ORDER BY c.commodity_name,m.meter_number
+        """)
+
+    def property_account_data(self,property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT a.utility_account_id,a.account_number,a.account_name,c.commodity_name,
+                   v.vendor_name,r.rate_class_code,r.rate_class_name,a.account_open_date,
+                   a.account_close_date,a.account_status,a.payment_method,a.payment_terms,
+                   a.currency_code,a.cost_center,a.general_ledger_account,
+                   a.billing_address,a.billing_city,a.billing_state,a.billing_postal_code
+            FROM {q}.dim_utility_account a
+            LEFT JOIN {q}.dim_commodity c ON a.commodity_id=c.commodity_id
+            LEFT JOIN {q}.dim_vendor v ON a.utility_vendor_id=v.vendor_id
+            LEFT JOIN {q}.dim_rate_class r ON a.rate_class_id=r.rate_class_id
+            WHERE a.property_id={pid}
+            ORDER BY c.commodity_name,a.account_number
+        """)
+
+    def property_vendor_data(self,property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT DISTINCT v.vendor_id,v.vendor_code,v.vendor_name,v.vendor_type,
+                   v.contact_name,v.contact_email,v.contact_phone,v.website,
+                   v.payment_terms,v.vendor_status
+            FROM {q}.dim_vendor v
+            WHERE v.vendor_id IN (
+                SELECT utility_vendor_id FROM {q}.dim_utility_account WHERE property_id={pid}
+                UNION
+                SELECT c.supplier_vendor_id FROM {q}.bridge_property_contract b
+                JOIN {q}.dim_contract c ON b.contract_id=c.contract_id
+                WHERE b.property_id={pid}
+                UNION
+                SELECT po.vendor_id FROM {q}.fact_purchase_order po WHERE po.property_id={pid}
+            )
+            ORDER BY v.vendor_name
+        """)
+
+    def property_rate_data(self,property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT DISTINCT a.account_number,c.commodity_name,v.vendor_name,
+                   rc.rate_class_code,rc.rate_class_name,rs.rate_schedule_id,rs.rate_code,
+                   rs.rate_name,rs.rate_basis,rs.currency_code,rs.effective_start_date,
+                   rs.effective_end_date,rs.rate_status,fc.component_code,fc.component_name,
+                   fc.charge_type,fc.calculation_basis,fc.unit_rate,fc.unit_of_measure
+            FROM {q}.dim_utility_account a
+            JOIN {q}.dim_rate_class rc ON a.rate_class_id=rc.rate_class_id
+            JOIN {q}.dim_rate_schedule rs ON rs.rate_class_id=rc.rate_class_id
+                                           AND rs.commodity_id=a.commodity_id
+            LEFT JOIN {q}.dim_commodity c ON rs.commodity_id=c.commodity_id
+            LEFT JOIN {q}.dim_vendor v ON rs.utility_vendor_id=v.vendor_id
+            LEFT JOIN {q}.fact_rate_component fc ON rs.rate_schedule_id=fc.rate_schedule_id
+            WHERE a.property_id={pid}
+            ORDER BY c.commodity_name,rs.rate_code,fc.component_code
+        """)
+
+    def property_contract_data(self,property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT c.contract_id,c.contract_number,c.contract_name,c.contract_type,
+                   supplier.vendor_name AS supplier_name,broker.vendor_name AS broker_name,
+                   co.commodity_name,rc.rate_class_code,rs.rate_code,c.contract_start_date,
+                   c.contract_end_date,c.auto_renewal_flag,c.renewal_notice_days,
+                   c.termination_notice_days,c.pricing_type,c.currency_code,
+                   c.estimated_annual_volume,c.volume_unit,c.estimated_annual_value,
+                   c.payment_terms,c.contract_status,b.allocation_pct,
+                   b.effective_start_date AS property_start_date,
+                   b.effective_end_date AS property_end_date
+            FROM {q}.bridge_property_contract b
+            JOIN {q}.dim_contract c ON b.contract_id=c.contract_id
+            LEFT JOIN {q}.dim_vendor supplier ON c.supplier_vendor_id=supplier.vendor_id
+            LEFT JOIN {q}.dim_vendor broker ON c.broker_vendor_id=broker.vendor_id
+            LEFT JOIN {q}.dim_commodity co ON c.commodity_id=co.commodity_id
+            LEFT JOIN {q}.dim_rate_class rc ON c.rate_class_id=rc.rate_class_id
+            LEFT JOIN {q}.dim_rate_schedule rs ON c.rate_schedule_id=rs.rate_schedule_id
+            WHERE b.property_id={pid}
+            ORDER BY c.contract_end_date
+        """)
+
+    def property_bill_data(self,property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT b.energy_bill_id,b.bill_number,a.account_number,v.vendor_name,
+                   b.bill_period_start,b.bill_period_end,b.invoice_date,b.due_date,
+                   b.total_usage_quantity,b.usage_unit,b.subtotal_amount,b.tax_amount,
+                   b.total_amount,b.currency_code,b.amount_paid,b.balance_amount,
+                   b.payment_status,b.bill_status
+            FROM {q}.fact_energy_bill b
+            LEFT JOIN {q}.dim_utility_account a ON b.utility_account_id=a.utility_account_id
+            LEFT JOIN {q}.dim_vendor v ON b.vendor_id=v.vendor_id
+            WHERE b.property_id={pid}
+            ORDER BY b.invoice_date DESC
+        """)
+
+    def property_procurement_data(self,property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT po.purchase_order_number,po.order_date,po.requested_delivery_date,
+                   v.vendor_name,c.contract_number,po.department,po.cost_center,
+                   po.currency_code,po.subtotal_amount,po.tax_amount,po.total_amount,
+                   po.approval_status,po.purchase_order_status,po.description,
+                   vi.vendor_invoice_number,vi.invoice_date,vi.due_date,
+                   vi.invoice_status,vi.approval_status AS invoice_approval_status,
+                   vi.total_amount AS invoice_total,
+                   pay.payment_date,pay.payment_reference,pay.payment_amount,pay.payment_status
+            FROM {q}.fact_purchase_order po
+            LEFT JOIN {q}.dim_vendor v ON po.vendor_id=v.vendor_id
+            LEFT JOIN {q}.dim_contract c ON po.contract_id=c.contract_id
+            LEFT JOIN {q}.fact_vendor_invoice vi ON po.purchase_order_id=vi.purchase_order_id
+            LEFT JOIN {q}.fact_vendor_payment pay ON vi.vendor_invoice_id=pay.vendor_invoice_id
+            WHERE po.property_id={pid}
+            ORDER BY po.order_date DESC
+        """)
+
