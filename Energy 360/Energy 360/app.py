@@ -272,8 +272,12 @@ def _choose_page(page_name):
 def filters():
     groups = [
         ("OVERVIEW", ["Executive Dashboard"]),
-        ("OPERATIONS", ["Energy Generation", "Transmission & Distribution", "Energy Consumption", "Property Energy Management", "Asset Management", "Forecasting & Analytics"]),
-        ("SUSTAINABILITY & MARKETS", ["Sustainability", "Energy Cost & Trading"]),
+        ("OPERATIONS", ["Property Energy Management"]),
+        ("SUSTAINABILITY & MARKETS", [
+            "Energy Generation", "Transmission & Distribution", "Energy Consumption",
+            "Asset Management", "Forecasting & Analytics", "Sustainability",
+            "Energy Cost & Trading",
+        ]),
         ("INSIGHTS", ["Geographical Analysis", "Reports & Insights"]),
     ]
     if "active_energy_page" not in st.session_state:
