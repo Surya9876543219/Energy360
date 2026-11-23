@@ -1011,12 +1011,12 @@ def render_contract_portfolio():
     )
     contract_level = st.radio(
         "Contract Type",
-        ["Property Contracts", "Meter Contracts"],
+        ["Property", "Meter"],
         horizontal=True,
         key="contract_portfolio_level",
     )
     if "linked_to" in contracts.columns:
-        if contract_level == "Property Contracts":
+        if contract_level == "Property":
             contracts = contracts[contracts["linked_to"].astype(str).str.lower() == "property"].copy()
         else:
             contracts = contracts[contracts["linked_to"].astype(str).str.lower().str.startswith("meter")].copy()
