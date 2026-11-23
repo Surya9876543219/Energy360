@@ -175,6 +175,10 @@ def get_property_contracts(property_id):
     return data_client().property_contract_data(property_id)
 
 @st.cache_data(ttl=180, show_spinner=False)
+def get_property_meter_contracts(property_id):
+    return data_client().property_meter_contract_data(property_id)
+
+@st.cache_data(ttl=180, show_spinner=False)
 def get_property_bills(property_id):
     return data_client().property_bill_data(property_id)
 
@@ -771,6 +775,13 @@ def render_property_energy_management():
         st.code(str(exc))
         return
 
+    try:
+        meter_contracts = get_property_meter_contracts(selected_id)
+    except DataAccessError as exc:
+        meter_contracts = pd.DataFrame()
+        st.warning("Meter-level contract duration is not available yet. Run the contract duration migration SQL script, then refresh the app.")
+        st.caption(str(exc))
+
     area = prop.get("gross_area_sqft")
     area_text = f"{float(area):,.2f} gross sq. ft." if pd.notna(area) else "Area not provided"
     st.markdown(
@@ -859,15 +870,16 @@ def render_property_energy_management():
 
     st.subheader("Property operations")
     tabs = st.tabs([
-        "Meters & Readings", "Utility Accounts", "Vendors", "Rate Details",
-        "Contracts", "Bills", "Procurement",
+        "Meters & Readings", "Meter Contracts", "Utility Accounts", "Vendors",
+        "Rate Details", "Property Contracts", "Bills", "Procurement",
     ])
     tab_data = [
         (meters, "Meter inventory"),
+        (meter_contracts, "Meter-level contract duration"),
         (accounts, "Utility accounts"),
         (vendors, "Vendors and suppliers"),
         (rates, "Rate schedules and components"),
-        (contracts, "Supplier contracts"),
+        (contracts, "Property-level supplier contracts"),
         (bills, "Utility bills"),
         (procurement, "Purchase orders, invoices and payments"),
     ]
