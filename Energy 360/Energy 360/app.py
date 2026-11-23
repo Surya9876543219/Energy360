@@ -886,19 +886,51 @@ def render_contract_management(property_id, meters):
             selected_row = extendable[extendable["link_id"].astype(str) == str(selected_link)].iloc[0]
             min_end = pd.Timestamp.today().date()
             current_end = pd.to_datetime(selected_row["contract_end_date"]).date()
-            proposed_end = st.date_input(
-                "New Contract End Date",
-                value=max(current_end, min_end),
-                min_value=min_end,
-                key=f"extend_contract_date_{property_id}_{scope}",
-            )
+            property_end = None
+            if scope == "Meter":
+                try:
+                    property_end = data_client().property_contract_end_date_for_meter(selected_link)
+                except DataAccessError as exc:
+                    st.error("Could not validate the related property contract end date.")
+                    st.code(str(exc))
+            if scope == "Meter" and property_end is None:
+                st.error(
+                    "This meter does not have a matching property-level contract for its commodity. "
+                    "Create or extend the property contract before extending this meter contract."
+                )
+                proposed_end = current_end
+            elif scope == "Meter" and property_end <= current_end:
+                st.info(
+                    f"The related property contract ends on {property_end}. "
+                    "The meter contract cannot be extended beyond that date. "
+                    "Extend the property contract first if a longer meter term is required."
+                )
+                proposed_end = current_end
+            else:
+                if scope == "Meter":
+                    st.caption(
+                        f"Validation: Meter contract end date must be on or before "
+                        f"the Property contract end date ({property_end})."
+                    )
+                proposed_end = st.date_input(
+                    "New Contract End Date",
+                    value=max(current_end, min_end),
+                    min_value=min_end,
+                    max_value=property_end if scope == "Meter" else None,
+                    key=f"extend_contract_date_{property_id}_{scope}",
+                )
             if st.button(
                 "Extend Contract",
                 key=f"extend_contract_submit_{property_id}_{scope}",
                 type="primary",
+                disabled=(scope == "Meter" and (property_end is None or property_end <= current_end)),
             ):
                 if proposed_end <= current_end:
                     st.error("The new end date must be later than the current contract end date.")
+                elif scope == "Meter" and property_end and proposed_end > property_end:
+                    st.error(
+                        f"Meter contract cannot end after the property contract ({property_end})."
+                    )
                 else:
                     try:
                         data_client().extend_contract_link(scope, selected_link, proposed_end)
