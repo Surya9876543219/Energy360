@@ -291,6 +291,7 @@ def render_hero(page):
 
 def plotly_drilldown(fig, detail_df, key, detail_title, detail_column=None):
     """Clickable Plotly selection with matching underlying rows and CSV export."""
+    fig.update_yaxes(tickformat=",.2f")
     if detail_df is None or detail_df.empty:
         st.plotly_chart(fig, use_container_width=True, key=key)
         return
@@ -791,6 +792,7 @@ def render_property_energy_management():
                 )
                 fig.update_yaxes(title=unit, gridcolor="#E7EEF4")
                 fig.update_xaxes(title="")
+                fig.update_yaxes(tickformat=",.2f")
                 st.plotly_chart(fig, use_container_width=True, key=f"property_usage_{selected_id}")
         with right:
             st.markdown("**Energy cost by commodity**")
@@ -803,6 +805,7 @@ def render_property_energy_management():
             )
             fig.update_yaxes(title="USD", tickprefix="$", gridcolor="#E7EEF4")
             fig.update_xaxes(title="")
+            fig.update_yaxes(tickformat=",.2f")
             st.plotly_chart(fig, use_container_width=True, key=f"property_cost_{selected_id}")
 
     st.subheader("Property operations")
