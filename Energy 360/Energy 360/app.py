@@ -997,9 +997,17 @@ def render_contract_portfolio():
         return
 
     contracts = contracts.copy()
-    contracts["days_remaining"] = pd.to_numeric(contracts["days_remaining"], errors="coerce")
     contracts["contract_duration_days"] = pd.to_numeric(
         contracts["contract_duration_days"], errors="coerce"
+    )
+    # Recalculate remaining days from the displayed contract end date so that
+    # KPI counts, filters and row highlighting all use the same date basis.
+    # Use the application business date (India) rather than a potentially
+    # different SQL session timezone or stale cached days_remaining value.
+    today = pd.Timestamp.now(tz="Asia/Kolkata").date()
+    end_dates = pd.to_datetime(contracts["contract_end_date"], errors="coerce").dt.date
+    contracts["days_remaining"] = end_dates.apply(
+        lambda end_date: (end_date - today).days if pd.notna(end_date) else float("nan")
     )
     total = len(contracts)
     expired_or_30 = int((contracts["days_remaining"] <= 30).sum())
