@@ -459,6 +459,53 @@ class EnergyData:
             ORDER BY c.contract_end_date
         """)
 
+    def all_contracts_data(self):
+        q=self.qschema
+        return self.query(f"""
+            WITH contract_links AS (
+                SELECT b.contract_id,p.property_name,
+                       coalesce(b.effective_start_date,c.contract_start_date) AS start_date,
+                       coalesce(b.effective_end_date,c.contract_end_date) AS end_date,
+                       'Property' AS link_type
+                FROM {q}.bridge_property_contract b
+                JOIN {q}.dim_property p ON b.property_id=p.property_id
+                JOIN {q}.dim_contract c ON b.contract_id=c.contract_id
+                UNION ALL
+                SELECT b.contract_id,p.property_name,
+                       coalesce(b.effective_start_date,c.contract_start_date) AS start_date,
+                       coalesce(b.effective_end_date,c.contract_end_date) AS end_date,
+                       'Meter' AS link_type
+                FROM {q}.bridge_meter_contract b
+                JOIN {q}.dim_property p ON b.property_id=p.property_id
+                JOIN {q}.dim_contract c ON b.contract_id=c.contract_id
+            ),
+            link_summary AS (
+                SELECT contract_id,
+                       concat_ws(', ',sort_array(collect_set(property_name))) AS property_names,
+                       min(start_date) AS linked_start_date,
+                       min(end_date) AS linked_end_date,
+                       concat_ws(', ',sort_array(collect_set(link_type))) AS linked_to
+                FROM contract_links
+                GROUP BY contract_id
+            )
+            SELECT c.contract_id,c.contract_number,c.contract_name,
+                   v.vendor_name AS supplier_name,co.commodity_name,
+                   coalesce(ls.property_names,'Not Assigned') AS property_name,
+                   coalesce(ls.linked_to,'Not Assigned') AS linked_to,
+                   coalesce(ls.linked_start_date,c.contract_start_date) AS contract_start_date,
+                   coalesce(ls.linked_end_date,c.contract_end_date) AS contract_end_date,
+                   datediff(coalesce(ls.linked_end_date,c.contract_end_date),
+                            coalesce(ls.linked_start_date,c.contract_start_date)) AS contract_duration_days,
+                   datediff(coalesce(ls.linked_end_date,c.contract_end_date),current_date()) AS days_remaining,
+                   c.auto_renewal_flag,c.renewal_notice_days,c.contract_status,c.currency_code,
+                   c.estimated_annual_value
+            FROM {q}.dim_contract c
+            LEFT JOIN link_summary ls ON c.contract_id=ls.contract_id
+            LEFT JOIN {q}.dim_vendor v ON c.supplier_vendor_id=v.vendor_id
+            LEFT JOIN {q}.dim_commodity co ON c.commodity_id=co.commodity_id
+            ORDER BY days_remaining ASC NULLS LAST,c.contract_number
+        """)
+
     def contract_management_options(self):
         q=self.qschema
         vendors=self.query(f"""
