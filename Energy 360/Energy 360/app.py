@@ -312,6 +312,8 @@ def format_plotly_numbers(fig):
             template = template.replace("%{marker.color}", "%{marker.color:,.2f}")
             template = template.replace("%{value}", "%{value:,.2f}")
             trace.hovertemplate = template
+        if getattr(trace, "type", None) == "pie":
+            trace.texttemplate = "%{percent:.2%}"
     return fig
 
 
