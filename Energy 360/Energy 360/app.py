@@ -182,11 +182,11 @@ def get_property_bills(property_id):
 def get_property_procurement(property_id):
     return data_client().property_procurement_data(property_id)
 
-def fmt_num(v, digits=1):
+def fmt_num(v, digits=2):
     return "—" if v is None or pd.isna(v) else f"{v:,.{digits}f}"
 
 def fmt_usd(v):
-    return "—" if v is None or pd.isna(v) else f"${v:,.0f}"
+    return "—" if v is None or pd.isna(v) else f"${v:,.2f}"
 
 def page_heading(title, subtitle):
     st.title(title)
@@ -203,7 +203,8 @@ def show_df(df, title, limit=500):
     if df is None or df.empty:
         st.info("No records match the selected filters.")
         return
-    st.dataframe(df.head(limit), use_container_width=True, hide_index=True)
+    float_formats = {col: "{:,.2f}" for col in df.select_dtypes(include=["float", "floating"]).columns}
+    st.dataframe(df.head(limit).style.format(float_formats, na_rep="—"), use_container_width=True, hide_index=True)
     st.download_button(
         f"Download {title} CSV",
         df.to_csv(index=False).encode("utf-8"),
@@ -312,7 +313,8 @@ def plotly_drilldown(fig, detail_df, key, detail_title, detail_column=None):
     if selected and detail_column and detail_column in detail_df.columns:
         matched = detail_df[detail_df[detail_column].astype(str).isin(set(selected))]
         with st.expander(f"Drill-through: {detail_title} ({len(matched):,} records)", expanded=True):
-            st.dataframe(matched, use_container_width=True, hide_index=True)
+            float_formats = {col: "{:,.2f}" for col in matched.select_dtypes(include=["float", "floating"]).columns}
+            st.dataframe(matched.style.format(float_formats, na_rep="—"), use_container_width=True, hide_index=True)
             st.download_button(f"Download {detail_title} detail",
                 matched.to_csv(index=False).encode("utf-8"),
                 file_name=f"energy360_{key}_detail.csv", mime="text/csv",
@@ -465,7 +467,7 @@ def render_dashboard(start_d, end_d, state):
             with table_col:
                 display_source = by_source[["energysource","generation_mwh","share_pct"]].copy()
                 display_source["generation_mwh"] = display_source["generation_mwh"].map(lambda x: f"{x/1000:,.2f}")
-                display_source["share_pct"] = display_source["share_pct"].map(lambda x: f"{x:.1f}%")
+                display_source["share_pct"] = display_source["share_pct"].map(lambda x: f"{x:.2f}%")
                 display_source.columns = ["Energy Source","Generation (GWh)","Share"]
                 st.dataframe(display_source,use_container_width=True,hide_index=True,height=300)
         else:
@@ -479,7 +481,7 @@ def render_dashboard(start_d, end_d, state):
         if not states.empty and {"latitude","longitude"}.issubset(states.columns):
             fig = px.scatter_geo(states,lat="latitude",lon="longitude",size="generation_mwh",
                                  color="generation_mwh",hover_name="statename",
-                                 hover_data={"generation_mwh":":,.0f","latitude":False,"longitude":False}, custom_data=["statekey"],
+                                 hover_data={"generation_mwh":":,.2f","latitude":False,"longitude":False}, custom_data=["statekey"],
                                  scope="usa",color_continuous_scale=["#BFE7D0","#1976D2"])
             fig.update_geos(fitbounds="locations",visible=False,showland=True,landcolor="#F2F7FB",
                             showcountries=True,countrycolor="#CBD8E5",showocean=True,oceancolor="#FFFFFF")
@@ -555,7 +557,7 @@ def render_grid(start_d,end_d,state):
         st.info("No grid records for the selected filters."); return
     metric_row([("Grid Availability",f"{df.gridavailabilitypct.mean():.2f}%",None),
                 ("Transmission Loss",f"{df.transmissionlosspct.mean():.2f}%",None),
-                ("Outages",f"{df.outagecount.sum():,.0f}",None),
+                ("Outages",f"{df.outagecount.sum():,.2f}",None),
                 ("SAIDI",f"{df.saidi_hours.mean():.2f} hours",None)])
     a,b=st.columns(2)
     with a:
@@ -576,8 +578,8 @@ def render_assets(start_d,end_d,state):
         st.info("No asset performance records for the selected filters."); return
     metric_row([("Average Availability",f"{df.availabilitypct.mean():.2f}%",None),
                 ("Average Health Score",f"{df.assethealthscore.mean():.2f}",None),
-                ("Downtime",f"{df.downtimehours.sum():,.1f} hours",None),
-                ("Maintenance Events",f"{df.maintenanceevents.sum():,.0f}",None)])
+                ("Downtime",f"{df.downtimehours.sum():,.2f} hours",None),
+                ("Maintenance Events",f"{df.maintenanceevents.sum():,.2f}",None)])
     a,b=st.columns(2)
     with a:
         asset_health=df.groupby("assetname",as_index=False)["assethealthscore"].mean()
@@ -596,7 +598,7 @@ def render_sustainability(start_d,end_d,state):
         st.info("No carbon emissions records for the selected filters."); return
     metric_row([("Emissions",f"{df.emissions_tco2e.sum():,.2f} tCO₂e",None),
                 ("Energy Generated",f"{df.energygenerated_mwh.sum():,.2f} MWh",None),
-                ("Avg Emission Factor",f"{df.emissionfactor_tco2e_per_mwh.mean():.4f} tCO₂e/MWh",None),
+                ("Avg Emission Factor",f"{df.emissionfactor_tco2e_per_mwh.mean():.2f} tCO₂e/MWh",None),
                 ("Carbon Reduction Target",f"{df.carbonreductiontargetpct.mean():.2f}%",None)])
     a,b=st.columns(2)
     with a:
@@ -720,7 +722,7 @@ def render_property_energy_management():
         return
 
     area = prop.get("gross_area_sqft")
-    area_text = f"{float(area):,.0f} gross sq. ft." if pd.notna(area) else "Area not provided"
+    area_text = f"{float(area):,.2f} gross sq. ft." if pd.notna(area) else "Area not provided"
     st.markdown(
         f"**{prop.get('property_type') or 'Property'}** · "
         f"{prop.get('address_line_1') or ''} · "
@@ -738,9 +740,9 @@ def render_property_energy_management():
     contract_count = int(contracts["contract_id"].nunique()) if not contracts.empty else 0
     metric_row([
         ("Energy Cost", fmt_usd(total_cost), "Sum of recorded property energy costs."),
-        ("Meters", f"{meter_count:,}", None),
-        ("Utility Accounts", f"{account_count:,}", None),
-        ("Supplier Contracts", f"{contract_count:,}", None),
+        ("Meters", f"{meter_count:,.2f}", None),
+        ("Utility Accounts", f"{account_count:,.2f}", None),
+        ("Supplier Contracts", f"{contract_count:,.2f}", None),
     ])
 
     st.subheader("Commodity consumption")
@@ -759,7 +761,7 @@ def render_property_energy_management():
                 st.metric(
                     f"{row['commodity_name']} ({row['usage_unit']})",
                     fmt_num(row["total_usage"], 2),
-                    help=f"{int(row['records'])} usage records | {fmt_usd(row['total_cost'])}",
+                    help=f"{int(row['records']):,.2f} usage records | {fmt_usd(row['total_cost'])}",
                 )
 
         left, right = st.columns([1.35, 1])
@@ -822,7 +824,8 @@ def render_property_energy_management():
             if frame is None or frame.empty:
                 st.info(f"No {title.lower()} records are linked to this property.")
             else:
-                st.dataframe(frame, use_container_width=True, hide_index=True)
+                float_formats = {col: "{:,.2f}" for col in frame.select_dtypes(include=["float", "floating"]).columns}
+                st.dataframe(frame.style.format(float_formats, na_rep="—"), use_container_width=True, hide_index=True)
                 st.download_button(
                     f"Download {title} CSV",
                     frame.to_csv(index=False).encode("utf-8"),
