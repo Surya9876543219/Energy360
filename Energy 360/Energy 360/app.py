@@ -778,6 +778,21 @@ def render_reports(start_d,end_d,state):
     show_df(df,f"{report} report",10000)
 
 def render_property_energy_management():
+    # Apply title-style capitalization and stronger visual headings on this page only.
+    st.markdown("""
+    <style>
+    section[data-testid="stMain"] { text-transform: capitalize; }
+    section[data-testid="stMain"] h1,
+    section[data-testid="stMain"] h2,
+    section[data-testid="stMain"] h3,
+    section[data-testid="stMain"] [data-testid="stMetricLabel"],
+    section[data-testid="stMain"] .js-plotly-plot .gtitle,
+    section[data-testid="stMain"] .js-plotly-plot .xtitle,
+    section[data-testid="stMain"] .js-plotly-plot .ytitle {
+        font-weight: 800 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     page_heading(
         "Property Energy Management",
         "Property-level energy usage, meters, utility accounts, suppliers, rate details, contracts and procurement.",
@@ -852,10 +867,10 @@ def render_property_energy_management():
     account_count = int(accounts["utility_account_id"].nunique()) if not accounts.empty else 0
     contract_count = int(contracts["contract_id"].nunique()) if not contracts.empty else 0
     metric_row([
-        ("Energy Cost", fmt_usd(total_cost), "Sum of recorded property energy costs."),
-        ("Meters", f"{meter_count:,.2f}", None),
-        ("Utility Accounts", f"{account_count:,.2f}", None),
-        ("Supplier Contracts", f"{contract_count:,.2f}", None),
+        ("Energy Cost", "$" + fmt_k(total_cost, 0), "Sum of recorded property energy costs."),
+        ("Meters", f"{meter_count:,}", None),
+        ("Utility Accounts", f"{account_count:,}", None),
+        ("Supplier Contracts", f"{contract_count:,}", None),
     ])
 
     st.subheader("Commodity consumption")
