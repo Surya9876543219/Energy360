@@ -89,6 +89,24 @@ div[data-testid="stMetric"]{background:#FFFFFF;border:1px solid #DCE6EF;padding:
 h1,h2,h3{color:#183B59;letter-spacing:-.35px}
 div[data-testid="stDataFrame"]{border:1px solid #E5EDF4;border-radius:10px}
 @media(max-width:1050px){.metric-value{font-size:1.08rem}.hero-title{font-size:1.6rem}.hero-banner:after{width:42%}}
+
+/* Consistent bold Pascal Case headers throughout every app page. */
+h1, h2, h3, h4, h5, h6,
+[data-testid="stSubheader"],
+[data-testid="stMetricLabel"],
+[data-testid="stDataFrame"] [role="columnheader"],
+[data-testid="stTable"] th,
+[data-testid="stTabs"] button[role="tab"],
+[data-testid="stSidebar"] .stButton > button,
+.chart-title,
+.js-plotly-plot .gtitle,
+.js-plotly-plot .xtitle,
+.js-plotly-plot .ytitle,
+.js-plotly-plot .legendtitle,
+.js-plotly-plot .annotation-text {
+    font-weight: 800 !important;
+    text-transform: capitalize !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -778,21 +796,6 @@ def render_reports(start_d,end_d,state):
     show_df(df,f"{report} report",10000)
 
 def render_property_energy_management():
-    # Apply title-style capitalization and stronger visual headings on this page only.
-    st.markdown("""
-    <style>
-    section[data-testid="stMain"] { text-transform: capitalize; }
-    section[data-testid="stMain"] h1,
-    section[data-testid="stMain"] h2,
-    section[data-testid="stMain"] h3,
-    section[data-testid="stMain"] [data-testid="stMetricLabel"],
-    section[data-testid="stMain"] .js-plotly-plot .gtitle,
-    section[data-testid="stMain"] .js-plotly-plot .xtitle,
-    section[data-testid="stMain"] .js-plotly-plot .ytitle {
-        font-weight: 800 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
     page_heading(
         "Property Energy Management",
         "Property-level energy usage, meters, utility accounts, suppliers, rate details, contracts and procurement.",
