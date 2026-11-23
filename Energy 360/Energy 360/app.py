@@ -1186,6 +1186,7 @@ def render_property_energy_management():
     tabs = st.tabs([
         "Meters & Readings", "Meter Contracts", "Utility Accounts", "Vendors",
         "Rate Details", "Property Contracts", "Bills", "Procurement",
+        "Contract Management",
     ])
     tab_data = [
         (meters, "Meter inventory"),
@@ -1196,10 +1197,13 @@ def render_property_energy_management():
         (contracts, "Property-level supplier contracts"),
         (bills, "Utility bills"),
         (procurement, "Purchase orders, invoices and payments"),
+        (pd.DataFrame(), "Contract management"),
     ]
     for tab, (frame, title) in zip(tabs, tab_data):
         with tab:
-            if frame is None or frame.empty:
+            if title == "Contract management":
+                render_contract_management(selected_id, meters)
+            elif frame is None or frame.empty:
                 st.info(f"No {title.lower()} records are linked to this property.")
             else:
                 number_formats = {col: fmt_k for col in frame.select_dtypes(include=["number"]).columns if col.lower() != "datekey"}
