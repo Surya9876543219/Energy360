@@ -508,14 +508,27 @@ def render_dashboard(start_d, end_d, state):
         st.subheader("State-wise generation")
         states = data["by_state"]
         if not states.empty and {"latitude","longitude"}.issubset(states.columns):
-            fig = px.scatter_geo(states,lat="latitude",lon="longitude",size="generation_mwh",
-                                 color="generation_mwh",hover_name="statename",
-                                 hover_data={"generation_mwh":":,.2f","latitude":False,"longitude":False}, custom_data=["statekey"],
-                                 scope="usa",color_continuous_scale=["#BFE7D0","#1976D2"])
-            # Format the Plotly colorbar independently from chart axes.
+            # Display generation in millions so 13,951,403.2 is shown as 13.95,
+            # rather than Plotly's automatically abbreviated 13.9514032M.
+            states = states.copy()
+            states["generation_millions"] = states["generation_mwh"] / 1_000_000
+            fig = px.scatter_geo(
+                states, lat="latitude", lon="longitude", size="generation_mwh",
+                color="generation_millions", hover_name="statename",
+                hover_data={
+                    "generation_millions":":.2f",
+                    "generation_mwh":False,
+                    "latitude":False,
+                    "longitude":False,
+                },
+                custom_data=["statekey"],
+                scope="usa", color_continuous_scale=["#BFE7D0","#1976D2"],
+                labels={"generation_millions":"Generation (millions)"},
+            )
             fig.update_traces(
                 marker_colorbar=dict(
-                    tickformat=",.2f",
+                    title="Generation (millions)",
+                    tickformat=".2f",
                     exponentformat="none",
                     showexponent="none",
                 )
