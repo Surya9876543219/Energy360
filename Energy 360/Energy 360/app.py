@@ -484,6 +484,14 @@ def render_dashboard(start_d, end_d, state):
                                  color="generation_mwh",hover_name="statename",
                                  hover_data={"generation_mwh":":,.2f","latitude":False,"longitude":False}, custom_data=["statekey"],
                                  scope="usa",color_continuous_scale=["#BFE7D0","#1976D2"])
+            # Format the Plotly colorbar independently from chart axes.
+            fig.update_traces(
+                marker_colorbar=dict(
+                    tickformat=",.2f",
+                    exponentformat="none",
+                    showexponent="none",
+                )
+            )
             fig.update_geos(fitbounds="locations",visible=False,showland=True,landcolor="#F2F7FB",
                             showcountries=True,countrycolor="#CBD8E5",showocean=True,oceancolor="#FFFFFF")
             fig.update_layout(height=360,margin=dict(l=0,r=0,t=0,b=0),paper_bgcolor="white")
