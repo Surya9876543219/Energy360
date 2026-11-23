@@ -76,6 +76,19 @@ class EnergyData:
             self.connection = None
             raise DataAccessError(f"SQL execution failed: {exc}") from exc
 
+    def execute(self, sql_text):
+        """Execute a DML statement that does not return a result set."""
+        try:
+            conn = self._connect()
+            with conn.cursor() as cur:
+                cur.execute(sql_text)
+            return True
+        except DataAccessError:
+            raise
+        except Exception as exc:
+            self.connection = None
+            raise DataAccessError(f"SQL execution failed: {exc}") from exc
+
     @property
     def qschema(self):
         return f"`{self.catalog}`.`{self.schema}`"
@@ -445,6 +458,111 @@ class EnergyData:
             WHERE b.property_id={pid}
             ORDER BY c.contract_end_date
         """)
+
+    def contract_management_options(self):
+        q=self.qschema
+        vendors=self.query(f"""
+            SELECT vendor_id,vendor_name FROM {q}.dim_vendor
+            WHERE vendor_status IS NULL OR LOWER(vendor_status) NOT IN ('inactive','terminated')
+            ORDER BY vendor_name
+        """)
+        commodities=self.query(f"""
+            SELECT commodity_id,commodity_name FROM {q}.dim_commodity
+            WHERE is_active IS NULL OR is_active = TRUE
+            ORDER BY commodity_name
+        """)
+        return vendors, commodities
+
+    def contract_management_data(self,property_id,scope):
+        q=self.qschema; pid=self._sql_string(property_id)
+        if scope == "Property":
+            return self.query(f"""
+                SELECT b.property_contract_id AS link_id,'Property' AS contract_scope,
+                       p.property_name,NULL AS meter_id,NULL AS meter_number,
+                       c.contract_id,c.contract_number,c.contract_name,
+                       v.vendor_name AS supplier_name,co.commodity_name,
+                       b.effective_start_date AS contract_start_date,
+                       coalesce(b.effective_end_date,c.contract_end_date) AS contract_end_date,
+                       datediff(coalesce(b.effective_end_date,c.contract_end_date),current_date()) AS days_remaining,
+                       c.auto_renewal_flag,c.renewal_notice_days,c.contract_status
+                FROM {q}.bridge_property_contract b
+                JOIN {q}.dim_property p ON b.property_id=p.property_id
+                JOIN {q}.dim_contract c ON b.contract_id=c.contract_id
+                LEFT JOIN {q}.dim_vendor v ON c.supplier_vendor_id=v.vendor_id
+                LEFT JOIN {q}.dim_commodity co ON c.commodity_id=co.commodity_id
+                WHERE b.property_id={pid}
+                ORDER BY contract_end_date
+            """)
+        return self.query(f"""
+            SELECT b.meter_contract_id AS link_id,'Meter' AS contract_scope,
+                   p.property_name,m.meter_id,m.meter_number,
+                   c.contract_id,c.contract_number,c.contract_name,
+                   v.vendor_name AS supplier_name,co.commodity_name,
+                   b.effective_start_date AS contract_start_date,
+                   b.effective_end_date AS contract_end_date,
+                   datediff(b.effective_end_date,current_date()) AS days_remaining,
+                   c.auto_renewal_flag,c.renewal_notice_days,c.contract_status
+            FROM {q}.bridge_meter_contract b
+            JOIN {q}.dim_property p ON b.property_id=p.property_id
+            JOIN {q}.dim_meter m ON b.meter_id=m.meter_id
+            JOIN {q}.dim_contract c ON b.contract_id=c.contract_id
+            LEFT JOIN {q}.dim_vendor v ON c.supplier_vendor_id=v.vendor_id
+            LEFT JOIN {q}.dim_commodity co ON m.commodity_id=co.commodity_id
+            WHERE b.property_id={pid}
+            ORDER BY contract_end_date,m.meter_number
+        """)
+
+    def extend_contract_link(self,scope,link_id,new_end_date):
+        q=self.qschema; lid=self._sql_string(link_id)
+        end=self._sql_string(str(new_end_date))
+        table="bridge_property_contract" if scope == "Property" else "bridge_meter_contract"
+        key="property_contract_id" if scope == "Property" else "meter_contract_id"
+        self.execute(f"""
+            UPDATE {q}.{table}
+            SET effective_end_date=CAST({end} AS DATE)
+            WHERE {key}={lid}
+        """)
+
+    def create_contract_link(self,scope,property_id,meter_id,contract_number,contract_name,
+                             supplier_vendor_id,commodity_id,start_date,end_date,currency_code,
+                             auto_renewal,renewal_notice_days):
+        import uuid
+        q=self.qschema
+        contract_id="CON-"+uuid.uuid4().hex[:16].upper()
+        link_id=("PC-" if scope == "Property" else "MC-")+uuid.uuid4().hex[:16].upper()
+        vals=[contract_id,contract_number,contract_name,supplier_vendor_id,commodity_id,
+              str(start_date),str(end_date),currency_code]
+        s=[self._sql_string(v) for v in vals]
+        renewal="TRUE" if auto_renewal else "FALSE"
+        notice=int(renewal_notice_days)
+        self.execute(f"""
+            INSERT INTO {q}.dim_contract
+            (contract_id,contract_number,contract_name,supplier_vendor_id,commodity_id,
+             contract_type,contract_start_date,contract_end_date,auto_renewal_flag,
+             renewal_notice_days,currency_code,contract_status,created_at,updated_at)
+            VALUES ({s[0]},{s[1]},{s[2]},{s[3]},{s[4]},'Utility Supply',
+                    CAST({s[5]} AS DATE),CAST({s[6]} AS DATE),{renewal},{notice},
+                    {s[7]},'Active',current_timestamp(),current_timestamp())
+        """)
+        if scope == "Property":
+            self.execute(f"""
+                INSERT INTO {q}.bridge_property_contract
+                (property_contract_id,property_id,contract_id,allocation_pct,
+                 effective_start_date,effective_end_date,created_at)
+                VALUES ({self._sql_string(link_id)},{self._sql_string(property_id)},
+                        {self._sql_string(contract_id)},100.0000,
+                        CAST({s[5]} AS DATE),CAST({s[6]} AS DATE),current_timestamp())
+            """)
+        else:
+            self.execute(f"""
+                INSERT INTO {q}.bridge_meter_contract
+                (meter_contract_id,property_id,meter_id,contract_id,
+                 effective_start_date,effective_end_date,allocation_pct,created_at)
+                VALUES ({self._sql_string(link_id)},{self._sql_string(property_id)},
+                        {self._sql_string(meter_id)},{self._sql_string(contract_id)},
+                        CAST({s[5]} AS DATE),CAST({s[6]} AS DATE),100.0000,current_timestamp())
+            """)
+        return contract_id
 
     def property_bill_data(self,property_id):
         q=self.qschema; pid=self._sql_string(property_id)
