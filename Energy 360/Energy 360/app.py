@@ -1009,6 +1009,22 @@ def render_contract_portfolio():
     contracts["days_remaining"] = end_dates.apply(
         lambda end_date: (end_date - today).days if pd.notna(end_date) else float("nan")
     )
+    contract_level = st.radio(
+        "Contract Type",
+        ["Property Contracts", "Meter Contracts"],
+        horizontal=True,
+        key="contract_portfolio_level",
+    )
+    if "linked_to" in contracts.columns:
+        if contract_level == "Property Contracts":
+            contracts = contracts[contracts["linked_to"].astype(str).str.lower() == "property"].copy()
+        else:
+            contracts = contracts[contracts["linked_to"].astype(str).str.lower().str.startswith("meter")].copy()
+
+    if contracts.empty:
+        st.info(f"No records are available for {contract_level.lower()}.")
+        return
+
     total = len(contracts)
     expired_or_30 = int((contracts["days_remaining"] <= 30).sum())
     expiring_31_60 = int(contracts["days_remaining"].between(31, 60).sum())
@@ -1059,8 +1075,8 @@ def render_contract_portfolio():
         filtered = filtered[filtered["days_remaining"] > 60]
 
     display_cols = [
-        "contract_number", "contract_name", "supplier_name", "commodity_name",
-        "property_name", "linked_to", "contract_start_date", "contract_end_date",
+        "property_name", "contract_number", "contract_name", "supplier_name",
+        "commodity_name", "linked_to", "contract_start_date", "contract_end_date",
         "contract_duration_days", "days_remaining", "auto_renewal_flag",
         "contract_status",
     ]
@@ -1101,7 +1117,7 @@ def render_contract_portfolio():
             for col in row.index
         ]
 
-    st.markdown(f"**Complete Contract List ({len(display):,} Records)**")
+    st.markdown(f"**{contract_level} ({len(display):,} Records)**")
     if display.empty:
         st.info("No contracts match the selected search and expiry filter.")
     else:
@@ -1116,7 +1132,7 @@ def render_contract_portfolio():
         st.download_button(
             "Download Complete Contract List CSV",
             filtered.to_csv(index=False).encode("utf-8"),
-            file_name="energy360_complete_contract_portfolio.csv",
+            file_name=f"energy360_{contract_level.lower().replace(' ', '_')}.csv",
             mime="text/csv",
             key="download_contract_portfolio",
         )
