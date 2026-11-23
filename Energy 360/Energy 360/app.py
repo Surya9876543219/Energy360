@@ -90,6 +90,18 @@ h1,h2,h3{color:#183B59;letter-spacing:-.35px}
 div[data-testid="stDataFrame"]{border:1px solid #E5EDF4;border-radius:10px}
 @media(max-width:1050px){.metric-value{font-size:1.08rem}.hero-title{font-size:1.6rem}.hero-banner:after{width:42%}}
 
+/* Property chart section labels are bold; chart-internal titles remain regular. */
+.property-chart-section-heading {
+    font-weight: 800 !important;
+    text-transform: none !important;
+    font-size: 1rem;
+    color: #183B59;
+    margin: 0 0 0.75rem 0;
+}
+.js-plotly-plot .gtitle {
+    font-weight: 400 !important;
+    text-transform: none !important;
+}
 /* Consistent bold Pascal Case headers throughout every app page. */
 h1, h2, h3, h4, h5, h6,
 [data-testid="stSubheader"],
@@ -917,7 +929,7 @@ def render_property_energy_management():
         left, right = st.columns(2, gap="large")
         with left:
             if view_mode == "By commodity":
-                st.markdown("**Energy usage by commodity**")
+                st.markdown('<div class="property-chart-section-heading">Energy Usage By Commodity</div>', unsafe_allow_html=True)
                 usage_data = totals[["commodity_name", "usage_unit", "total_usage"]].copy()
                 usage_data["commodity_label"] = (
                     usage_data["commodity_name"].astype(str)
@@ -925,7 +937,7 @@ def render_property_energy_management():
                 )
                 fig = px.bar(
                     usage_data, x="commodity_label", y="total_usage",
-                    color="commodity_name", title="Total usage by commodity",
+                    color="commodity_name", title="Total Usage By Commodity",
                 )
                 fig.update_layout(
                     showlegend=False, height=360, margin=dict(l=10, r=10, t=45, b=10),
@@ -966,11 +978,11 @@ def render_property_energy_management():
 
         with right:
             if view_mode == "By commodity":
-                st.markdown("**Energy cost by commodity**")
+                st.markdown('<div class="property-chart-section-heading">Energy Cost By Commodity</div>', unsafe_allow_html=True)
                 cost_data = totals[["commodity_name", "total_cost"]].copy()
                 fig = px.bar(
                     cost_data, x="commodity_name", y="total_cost",
-                    color="commodity_name", title="Total cost by commodity (USD)",
+                    color="commodity_name", title="Total Cost By Commodity (USD)",
                 )
                 fig.update_layout(
                     showlegend=False, height=360, margin=dict(l=10, r=10, t=45, b=10),
