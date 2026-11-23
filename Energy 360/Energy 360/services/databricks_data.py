@@ -558,9 +558,39 @@ class EnergyData:
             ORDER BY contract_end_date,m.meter_number
         """)
 
+    def property_contract_end_date_for_meter(self,link_id):
+        q=self.qschema; lid=self._sql_string(link_id)
+        result=self.query(f"""
+            SELECT max(pb.effective_end_date) AS property_contract_end_date
+            FROM {q}.bridge_meter_contract mb
+            JOIN {q}.dim_meter m ON mb.meter_id=m.meter_id
+            JOIN {q}.bridge_property_contract pb
+              ON pb.property_id=mb.property_id
+            JOIN {q}.dim_contract pc ON pc.contract_id=pb.contract_id
+            JOIN {q}.dim_contract mc ON mc.contract_id=mb.contract_id
+            WHERE mb.meter_contract_id={lid}
+              AND pc.commodity_id=m.commodity_id
+              AND mc.commodity_id=m.commodity_id
+        """)
+        if result.empty or pd.isna(result.iloc[0]["property_contract_end_date"]):
+            return None
+        return pd.to_datetime(result.iloc[0]["property_contract_end_date"]).date()
+
     def extend_contract_link(self,scope,link_id,new_end_date):
         q=self.qschema; lid=self._sql_string(link_id)
         end=self._sql_string(str(new_end_date))
+        if scope == "Meter":
+            property_end=self.property_contract_end_date_for_meter(link_id)
+            if property_end is None:
+                raise DataAccessError(
+                    "This meter has no matching property-level contract for its commodity. "
+                    "Create or extend the property contract before extending the meter contract."
+                )
+            if new_end_date > property_end:
+                raise DataAccessError(
+                    f"Meter contract end date cannot be later than the property contract end date "
+                    f"({property_end}). Extend the property contract first."
+                )
         table="bridge_property_contract" if scope == "Property" else "bridge_meter_contract"
         key="property_contract_id" if scope == "Property" else "meter_contract_id"
         self.execute(f"""
