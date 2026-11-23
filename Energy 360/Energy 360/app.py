@@ -877,15 +877,18 @@ def render_property_energy_management():
                     help=f"{int(row['records']):,.2f} usage records | {fmt_usd(row['total_cost'])}",
                 )
 
-        left, right = st.columns([1.35, 1])
+        st.markdown("**Commodity for trend**")
+        commodities = totals["commodity_name"].dropna().astype(str).tolist()
+        chosen = st.selectbox(
+            "Select a commodity", commodities,
+            key=f"property_commodity_trend_{selected_id}",
+            label_visibility="collapsed",
+        )
+        selected_energy = energy[energy["commodity_name"] == chosen].copy()
+
+        left, right = st.columns(2, gap="large")
         with left:
             st.markdown("**Monthly consumption trend**")
-            commodities = totals["commodity_name"].dropna().astype(str).tolist()
-            chosen = st.selectbox(
-                "Commodity for trend", commodities,
-                key=f"property_commodity_trend_{selected_id}",
-            )
-            selected_energy = energy[energy["commodity_name"] == chosen].copy()
             trend = (
                 selected_energy.groupby("period_start_date", as_index=False)["usage_quantity"]
                 .sum().sort_values("period_start_date")
@@ -899,13 +902,18 @@ def render_property_energy_management():
                 )
                 fig.update_traces(line_color="#0878D1", line_width=3, marker_size=7)
                 fig.update_layout(
-                    height=330, margin=dict(l=10, r=10, t=45, b=10),
+                    height=360, margin=dict(l=10, r=10, t=45, b=10),
                     paper_bgcolor="white", plot_bgcolor="white",
                 )
                 fig.update_yaxes(title=unit, gridcolor="#E7EEF4")
                 fig.update_xaxes(title="")
-                fig.update_yaxes(tickformat=",.2f")
-                st.plotly_chart(format_plotly_numbers(fig), use_container_width=True, key=f"property_usage_{selected_id}")
+                st.plotly_chart(
+                    format_plotly_numbers(fig), use_container_width=True,
+                    key=f"property_usage_{selected_id}",
+                )
+            else:
+                st.info(f"No monthly usage records are available for {chosen}.")
+
         with right:
             st.markdown(f"**Monthly energy cost — {chosen}**")
             monthly_cost = (
@@ -919,7 +927,7 @@ def render_property_energy_management():
                 )
                 fig.update_traces(line_color="#0AA6BD", line_width=3, marker_size=7)
                 fig.update_layout(
-                    height=330, margin=dict(l=10, r=10, t=45, b=10),
+                    height=360, margin=dict(l=10, r=10, t=45, b=10),
                     paper_bgcolor="white", plot_bgcolor="white",
                 )
                 fig.update_yaxes(title="USD", gridcolor="#E7EEF4")
