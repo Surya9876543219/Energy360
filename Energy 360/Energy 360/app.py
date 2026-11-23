@@ -203,7 +203,7 @@ def show_df(df, title, limit=500):
     if df is None or df.empty:
         st.info("No records match the selected filters.")
         return
-    float_formats = {col: "{:,.2f}" for col in df.select_dtypes(include=["float", "floating"]).columns}
+    float_formats = {col: "{:,.2f}" for col in df.select_dtypes(include=["number"]).columns}
     st.dataframe(df.head(limit).style.format(float_formats, na_rep="—"), use_container_width=True, hide_index=True)
     st.download_button(
         f"Download {title} CSV",
@@ -289,9 +289,35 @@ def render_hero(page):
     )
 
 
+def format_plotly_numbers(fig):
+    """Apply consistent two-decimal numeric formatting to all Plotly visuals."""
+    fig.update_yaxes(tickformat=",.2f", exponentformat="none", showexponent="none")
+    fig.update_layout(
+        coloraxis=dict(
+            colorbar=dict(tickformat=",.2f", exponentformat="none", showexponent="none")
+        )
+    )
+    for trace in fig.data:
+        if getattr(trace, "marker", None) is not None:
+            try:
+                trace.marker.colorbar = dict(
+                    tickformat=",.2f", exponentformat="none", showexponent="none"
+                )
+            except (ValueError, AttributeError):
+                pass
+        template = getattr(trace, "hovertemplate", None)
+        if isinstance(template, str):
+            template = template.replace("%{y}", "%{y:,.2f}")
+            template = template.replace("%{z}", "%{z:,.2f}")
+            template = template.replace("%{marker.color}", "%{marker.color:,.2f}")
+            template = template.replace("%{value}", "%{value:,.2f}")
+            trace.hovertemplate = template
+    return fig
+
+
 def plotly_drilldown(fig, detail_df, key, detail_title, detail_column=None):
     """Clickable Plotly selection with matching underlying rows and CSV export."""
-    fig.update_yaxes(tickformat=",.2f")
+    format_plotly_numbers(fig)
     if detail_df is None or detail_df.empty:
         st.plotly_chart(fig, use_container_width=True, key=key)
         return
@@ -314,7 +340,7 @@ def plotly_drilldown(fig, detail_df, key, detail_title, detail_column=None):
     if selected and detail_column and detail_column in detail_df.columns:
         matched = detail_df[detail_df[detail_column].astype(str).isin(set(selected))]
         with st.expander(f"Drill-through: {detail_title} ({len(matched):,} records)", expanded=True):
-            float_formats = {col: "{:,.2f}" for col in matched.select_dtypes(include=["float", "floating"]).columns}
+            float_formats = {col: "{:,.2f}" for col in matched.select_dtypes(include=["number"]).columns}
             st.dataframe(matched.style.format(float_formats, na_rep="—"), use_container_width=True, hide_index=True)
             st.download_button(f"Download {detail_title} detail",
                 matched.to_csv(index=False).encode("utf-8"),
@@ -835,7 +861,7 @@ def render_property_energy_management():
             if frame is None or frame.empty:
                 st.info(f"No {title.lower()} records are linked to this property.")
             else:
-                float_formats = {col: "{:,.2f}" for col in frame.select_dtypes(include=["float", "floating"]).columns}
+                float_formats = {col: "{:,.2f}" for col in frame.select_dtypes(include=["number"]).columns}
                 st.dataframe(frame.style.format(float_formats, na_rep="—"), use_container_width=True, hide_index=True)
                 st.download_button(
                     f"Download {title} CSV",
