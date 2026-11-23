@@ -98,7 +98,9 @@ div[data-testid="stDataFrame"]{border:1px solid #E5EDF4;border-radius:10px}
     color: #183B59;
     margin: 0 0 0.75rem 0;
 }
-.js-plotly-plot .gtitle {
+.js-plotly-plot .gtitle,
+.js-plotly-plot .gtitle text,
+.js-plotly-plot .gtitle tspan {
     font-weight: 400 !important;
     text-transform: none !important;
 }
@@ -111,7 +113,6 @@ h1, h2, h3, h4, h5, h6,
 [data-testid="stTabs"] button[role="tab"],
 [data-testid="stSidebar"] .stButton > button,
 .chart-title,
-.js-plotly-plot .gtitle,
 .js-plotly-plot .xtitle,
 .js-plotly-plot .ytitle,
 .js-plotly-plot .legendtitle,
