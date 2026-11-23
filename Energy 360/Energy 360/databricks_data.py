@@ -479,18 +479,18 @@ class EnergyData:
                 JOIN {q}.dim_property p ON b.property_id=p.property_id
                 JOIN {q}.dim_contract c ON b.contract_id=c.contract_id
             ),
-            link_summary AS (
-                SELECT contract_id,
-                       concat_ws(', ',sort_array(collect_set(property_name))) AS property_names,
+            property_link_summary AS (
+                -- One row per contract and property, even when several meters share that contract.
+                SELECT contract_id,property_name,
                        min(start_date) AS linked_start_date,
                        min(end_date) AS linked_end_date,
                        concat_ws(', ',sort_array(collect_set(link_type))) AS linked_to
                 FROM contract_links
-                GROUP BY contract_id
+                GROUP BY contract_id,property_name
             )
             SELECT c.contract_id,c.contract_number,c.contract_name,
                    v.vendor_name AS supplier_name,co.commodity_name,
-                   coalesce(ls.property_names,'Not Assigned') AS property_name,
+                   coalesce(ls.property_name,'Not Assigned') AS property_name,
                    coalesce(ls.linked_to,'Not Assigned') AS linked_to,
                    coalesce(ls.linked_start_date,c.contract_start_date) AS contract_start_date,
                    coalesce(ls.linked_end_date,c.contract_end_date) AS contract_end_date,
@@ -500,10 +500,10 @@ class EnergyData:
                    c.auto_renewal_flag,c.renewal_notice_days,c.contract_status,c.currency_code,
                    c.estimated_annual_value
             FROM {q}.dim_contract c
-            LEFT JOIN link_summary ls ON c.contract_id=ls.contract_id
+            LEFT JOIN property_link_summary ls ON c.contract_id=ls.contract_id
             LEFT JOIN {q}.dim_vendor v ON c.supplier_vendor_id=v.vendor_id
             LEFT JOIN {q}.dim_commodity co ON c.commodity_id=co.commodity_id
-            ORDER BY days_remaining ASC NULLS LAST,c.contract_number
+            ORDER BY days_remaining ASC NULLS LAST,c.contract_number,property_name
         """)
 
     def contract_management_options(self):
