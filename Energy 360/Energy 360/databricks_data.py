@@ -425,7 +425,16 @@ class EnergyData:
                    c.estimated_annual_volume,c.volume_unit,c.estimated_annual_value,
                    c.payment_terms,c.contract_status,b.allocation_pct,
                    b.effective_start_date AS property_start_date,
-                   b.effective_end_date AS property_end_date
+                   b.effective_end_date AS property_end_date,
+                   datediff(coalesce(b.effective_end_date,c.contract_end_date),
+                            coalesce(b.effective_start_date,c.contract_start_date))+1 AS contract_duration_days,
+                   datediff(coalesce(b.effective_end_date,c.contract_end_date),current_date()) AS days_remaining,
+                   CASE
+                     WHEN coalesce(b.effective_start_date,c.contract_start_date) > current_date() THEN 'Upcoming'
+                     WHEN coalesce(b.effective_end_date,c.contract_end_date) < current_date() THEN 'Expired'
+                     WHEN datediff(coalesce(b.effective_end_date,c.contract_end_date),current_date()) <= 90 THEN 'Expiring Soon'
+                     ELSE 'Active'
+                   END AS duration_status
             FROM {q}.bridge_property_contract b
             JOIN {q}.dim_contract c ON b.contract_id=c.contract_id
             LEFT JOIN {q}.dim_vendor supplier ON c.supplier_vendor_id=supplier.vendor_id
@@ -472,3 +481,32 @@ class EnergyData:
             ORDER BY po.order_date DESC
         """)
 
+
+    def property_meter_contract_data(self,property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT p.property_name,m.meter_id,m.meter_number,m.meter_name,
+                   co.commodity_name,c.contract_id,c.contract_number,c.contract_name,
+                   v.vendor_name AS supplier_name,
+                   b.effective_start_date AS contract_start_date,
+                   b.effective_end_date AS contract_end_date,
+                   datediff(b.effective_end_date,b.effective_start_date)+1 AS contract_duration_days,
+                   datediff(b.effective_end_date,current_date()) AS days_remaining,
+                   CASE
+                     WHEN b.effective_start_date > current_date() THEN 'Upcoming'
+                     WHEN b.effective_end_date < current_date() THEN 'Expired'
+                     WHEN datediff(b.effective_end_date,current_date()) <= 90 THEN 'Expiring Soon'
+                     ELSE 'Active'
+                   END AS duration_status,
+                   c.auto_renewal_flag,c.renewal_notice_days,c.termination_notice_days,
+                   c.pricing_type,c.currency_code,c.estimated_annual_value,
+                   b.allocation_pct
+            FROM {q}.bridge_meter_contract b
+            JOIN {q}.dim_property p ON b.property_id=p.property_id
+            JOIN {q}.dim_meter m ON b.meter_id=m.meter_id
+            JOIN {q}.dim_contract c ON b.contract_id=c.contract_id
+            LEFT JOIN {q}.dim_commodity co ON m.commodity_id=co.commodity_id
+            LEFT JOIN {q}.dim_vendor v ON c.supplier_vendor_id=v.vendor_id
+            WHERE b.property_id={pid}
+            ORDER BY m.meter_number,b.effective_end_date
+        """)
