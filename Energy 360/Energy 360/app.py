@@ -878,7 +878,7 @@ def render_property_energy_management():
                 )
 
         view_mode = st.radio(
-            "View",
+            "",
             ["By commodity", "Monthly by commodity"],
             horizontal=True,
             key=f"property_chart_view_{selected_id}",
