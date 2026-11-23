@@ -464,46 +464,45 @@ class EnergyData:
         return self.query(f"""
             WITH contract_links AS (
                 SELECT b.contract_id,p.property_name,
+                       'Property' AS linked_to,
+                       CAST(NULL AS STRING) AS meter_number,
                        coalesce(b.effective_start_date,c.contract_start_date) AS start_date,
-                       coalesce(b.effective_end_date,c.contract_end_date) AS end_date,
-                       'Property' AS link_type
+                       coalesce(b.effective_end_date,c.contract_end_date) AS end_date
                 FROM {q}.bridge_property_contract b
                 JOIN {q}.dim_property p ON b.property_id=p.property_id
                 JOIN {q}.dim_contract c ON b.contract_id=c.contract_id
+
                 UNION ALL
+
                 SELECT b.contract_id,p.property_name,
+                       'Meter' AS linked_to,
+                       CAST(m.meter_number AS STRING) AS meter_number,
                        coalesce(b.effective_start_date,c.contract_start_date) AS start_date,
-                       coalesce(b.effective_end_date,c.contract_end_date) AS end_date,
-                       'Meter' AS link_type
+                       coalesce(b.effective_end_date,c.contract_end_date) AS end_date
                 FROM {q}.bridge_meter_contract b
                 JOIN {q}.dim_property p ON b.property_id=p.property_id
+                JOIN {q}.dim_meter m ON b.meter_id=m.meter_id
                 JOIN {q}.dim_contract c ON b.contract_id=c.contract_id
-            ),
-            property_link_summary AS (
-                -- One row per contract and property, even when several meters share that contract.
-                SELECT contract_id,property_name,
-                       min(start_date) AS linked_start_date,
-                       min(end_date) AS linked_end_date,
-                       concat_ws(', ',sort_array(collect_set(link_type))) AS linked_to
-                FROM contract_links
-                GROUP BY contract_id,property_name
             )
             SELECT c.contract_id,c.contract_number,c.contract_name,
                    v.vendor_name AS supplier_name,co.commodity_name,
                    coalesce(ls.property_name,'Not Assigned') AS property_name,
-                   coalesce(ls.linked_to,'Not Assigned') AS linked_to,
-                   coalesce(ls.linked_start_date,c.contract_start_date) AS contract_start_date,
-                   coalesce(ls.linked_end_date,c.contract_end_date) AS contract_end_date,
-                   datediff(coalesce(ls.linked_end_date,c.contract_end_date),
-                            coalesce(ls.linked_start_date,c.contract_start_date)) AS contract_duration_days,
-                   datediff(coalesce(ls.linked_end_date,c.contract_end_date),current_date()) AS days_remaining,
+                   CASE
+                     WHEN ls.linked_to='Meter' THEN concat('Meter: ',coalesce(ls.meter_number,''))
+                     ELSE coalesce(ls.linked_to,'Not Assigned')
+                   END AS linked_to,
+                   coalesce(ls.start_date,c.contract_start_date) AS contract_start_date,
+                   coalesce(ls.end_date,c.contract_end_date) AS contract_end_date,
+                   datediff(coalesce(ls.end_date,c.contract_end_date),
+                            coalesce(ls.start_date,c.contract_start_date)) AS contract_duration_days,
+                   datediff(coalesce(ls.end_date,c.contract_end_date),current_date()) AS days_remaining,
                    c.auto_renewal_flag,c.renewal_notice_days,c.contract_status,c.currency_code,
                    c.estimated_annual_value
             FROM {q}.dim_contract c
-            LEFT JOIN property_link_summary ls ON c.contract_id=ls.contract_id
+            LEFT JOIN contract_links ls ON c.contract_id=ls.contract_id
             LEFT JOIN {q}.dim_vendor v ON c.supplier_vendor_id=v.vendor_id
             LEFT JOIN {q}.dim_commodity co ON c.commodity_id=co.commodity_id
-            ORDER BY days_remaining ASC NULLS LAST,c.contract_number,property_name
+            ORDER BY days_remaining ASC NULLS LAST,c.contract_number,property_name,linked_to
         """)
 
     def contract_management_options(self):
