@@ -219,7 +219,7 @@ def show_df(df, title, limit=500):
     if df is None or df.empty:
         st.info("No records match the selected filters.")
         return
-    number_formats = {col: fmt_k for col in df.select_dtypes(include=["number"]).columns}
+    number_formats = {col: fmt_k for col in df.select_dtypes(include=["number"]).columns if col.lower() != "datekey"}
     st.dataframe(df.head(limit).style.format(number_formats, na_rep="—"), use_container_width=True, hide_index=True)
     st.download_button(
         f"Download {title} CSV",
@@ -940,7 +940,7 @@ def render_property_energy_management():
             if frame is None or frame.empty:
                 st.info(f"No {title.lower()} records are linked to this property.")
             else:
-                number_formats = {col: fmt_k for col in frame.select_dtypes(include=["number"]).columns}
+                number_formats = {col: fmt_k for col in frame.select_dtypes(include=["number"]).columns if col.lower() != "datekey"}
                 st.dataframe(frame.style.format(number_formats, na_rep="—"), use_container_width=True, hide_index=True)
                 st.download_button(
                     f"Download {title} CSV",
