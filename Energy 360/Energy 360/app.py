@@ -877,6 +877,12 @@ def render_property_energy_management():
                     help=f"{int(row['records']):,.2f} usage records | {fmt_usd(row['total_cost'])}",
                 )
 
+        view_mode = st.radio(
+            "Energy cost view",
+            ["By commodity", "Monthly by selected"],
+            horizontal=True,
+            key=f"property_cost_view_{selected_id}",
+        )
         st.markdown("**Commodity for trend**")
         commodities = totals["commodity_name"].dropna().astype(str).tolist()
         chosen = st.selectbox(
@@ -915,29 +921,47 @@ def render_property_energy_management():
                 st.info(f"No monthly usage records are available for {chosen}.")
 
         with right:
-            st.markdown(f"**Monthly energy cost — {chosen}**")
-            monthly_cost = (
-                selected_energy.groupby("period_start_date", as_index=False)["cost_amount"]
-                .sum().sort_values("period_start_date")
-            )
-            if not monthly_cost.empty:
-                fig = px.line(
-                    monthly_cost, x="period_start_date", y="cost_amount",
-                    markers=True, title=f"{chosen} monthly cost (USD)",
+            if view_mode == "By commodity":
+                st.markdown("**Energy cost by commodity**")
+                cost_data = totals[["commodity_name", "total_cost"]].copy()
+                fig = px.bar(
+                    cost_data, x="commodity_name", y="total_cost",
+                    color="commodity_name", title="Total cost by commodity (USD)",
                 )
-                fig.update_traces(line_color="#0AA6BD", line_width=3, marker_size=7)
                 fig.update_layout(
-                    height=360, margin=dict(l=10, r=10, t=45, b=10),
+                    showlegend=False, height=360, margin=dict(l=10, r=10, t=45, b=10),
                     paper_bgcolor="white", plot_bgcolor="white",
                 )
                 fig.update_yaxes(title="USD", gridcolor="#E7EEF4")
                 fig.update_xaxes(title="")
                 st.plotly_chart(
                     format_plotly_numbers(fig), use_container_width=True,
-                    key=f"property_cost_{selected_id}_{chosen}",
+                    key=f"property_cost_by_commodity_{selected_id}",
                 )
             else:
-                st.info(f"No monthly cost records are available for {chosen}.")
+                st.markdown(f"**Monthly energy cost — {chosen}**")
+                monthly_cost = (
+                    selected_energy.groupby("period_start_date", as_index=False)["cost_amount"]
+                    .sum().sort_values("period_start_date")
+                )
+                if not monthly_cost.empty:
+                    fig = px.line(
+                        monthly_cost, x="period_start_date", y="cost_amount",
+                        markers=True, title=f"{chosen} monthly cost (USD)",
+                    )
+                    fig.update_traces(line_color="#0AA6BD", line_width=3, marker_size=7)
+                    fig.update_layout(
+                        height=360, margin=dict(l=10, r=10, t=45, b=10),
+                        paper_bgcolor="white", plot_bgcolor="white",
+                    )
+                    fig.update_yaxes(title="USD", gridcolor="#E7EEF4")
+                    fig.update_xaxes(title="")
+                    st.plotly_chart(
+                        format_plotly_numbers(fig), use_container_width=True,
+                        key=f"property_cost_{selected_id}_{chosen}",
+                    )
+                else:
+                    st.info(f"No monthly cost records are available for {chosen}.")
 
     st.subheader("Property operations")
     tabs = st.tabs([
