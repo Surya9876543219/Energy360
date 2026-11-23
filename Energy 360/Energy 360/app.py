@@ -217,6 +217,11 @@ def get_contract_management_data(property_id, scope):
     return data_client().contract_management_data(property_id, scope)
 
 @st.cache_data(ttl=180, show_spinner=False)
+def get_all_contracts():
+    return data_client().all_contracts_data()
+
+
+@st.cache_data(ttl=180, show_spinner=False)
 def get_property_bills(property_id):
     return data_client().property_bill_data(property_id)
 
@@ -272,7 +277,7 @@ def _choose_page(page_name):
 def filters():
     groups = [
         ("OVERVIEW", ["Executive Dashboard"]),
-        ("OPERATIONS", ["Property Energy Management"]),
+        ("OPERATIONS", ["Property Energy Management", "Contract Portfolio"]),
         ("SUSTAINABILITY & MARKETS", [
             "Energy Generation", "Transmission & Distribution", "Energy Consumption",
             "Asset Management", "Forecasting & Analytics", "Sustainability",
@@ -296,7 +301,7 @@ def filters():
                 icon = {
                     "Executive Dashboard":"◉", "Energy Generation":"▥",
                     "Transmission & Distribution":"⚡", "Energy Consumption":"♧",
-                    "Property Energy Management":"⌂", "Asset Management":"⚙", "Forecasting & Analytics":"⌁",
+                    "Property Energy Management":"⌂", "Contract Portfolio":"▤", "Asset Management":"⚙", "Forecasting & Analytics":"⌁",
                     "Sustainability":"❧", "Energy Cost & Trading":"▤",
                     "Geographical Analysis":"⌖", "Reports & Insights":"▣",
                 }.get(page_name, "•")
@@ -974,6 +979,140 @@ def render_contract_management(property_id, meters):
                     st.error("Could not create the contract.")
                     st.code(str(exc))
 
+
+def render_contract_portfolio():
+    page_heading(
+        "Contract Portfolio",
+        "Complete contract register across all properties and meters, with duration and expiry monitoring.",
+    )
+    try:
+        contracts = get_all_contracts()
+    except DataAccessError as exc:
+        st.error("Unable to load the complete contract register.")
+        st.code(str(exc))
+        return
+
+    if contracts.empty:
+        st.info("No contracts are currently available in the contract master.")
+        return
+
+    contracts = contracts.copy()
+    contracts["days_remaining"] = pd.to_numeric(contracts["days_remaining"], errors="coerce")
+    contracts["contract_duration_days"] = pd.to_numeric(
+        contracts["contract_duration_days"], errors="coerce"
+    )
+    total = len(contracts)
+    expired_or_30 = int((contracts["days_remaining"] <= 30).sum())
+    expiring_31_60 = int(contracts["days_remaining"].between(31, 60).sum())
+    healthy = int((contracts["days_remaining"] > 60).sum())
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Total Contracts", f"{total:,}")
+    k2.metric("Expired / Expiring Within 30 Days", f"{expired_or_30:,}")
+    k3.metric("Expiring In 31–60 Days", f"{expiring_31_60:,}")
+    k4.metric("More Than 60 Days", f"{healthy:,}")
+
+    st.markdown("**Expiry Status Legend**")
+    st.markdown(
+        '<span style="background:#FDE2E2;color:#991B1B;padding:5px 10px;border-radius:6px;">'
+        'Red: Expired / 0–30 Days</span> &nbsp; '
+        '<span style="background:#FFEDD5;color:#9A3412;padding:5px 10px;border-radius:6px;">'
+        'Orange: 31–60 Days</span> &nbsp; '
+        '<span style="background:#DCFCE7;color:#166534;padding:5px 10px;border-radius:6px;">'
+        'Green: More Than 60 Days</span>',
+        unsafe_allow_html=True,
+    )
+
+    search_col, status_col = st.columns([2, 1])
+    with search_col:
+        search = st.text_input("Search Contracts", placeholder="Contract, supplier or property")
+    with status_col:
+        expiry_filter = st.selectbox(
+            "Expiry Filter",
+            ["All Contracts", "Expired / 0–30 Days", "31–60 Days", "More Than 60 Days"],
+        )
+
+    filtered = contracts.copy()
+    if search.strip():
+        term = search.strip().lower()
+        searchable = ["contract_number", "contract_name", "supplier_name",
+                      "commodity_name", "property_name", "linked_to"]
+        mask = pd.Series(False, index=filtered.index)
+        for col in searchable:
+            if col in filtered.columns:
+                mask |= filtered[col].fillna("").astype(str).str.lower().str.contains(
+                    term, regex=False
+                )
+        filtered = filtered[mask]
+    if expiry_filter == "Expired / 0–30 Days":
+        filtered = filtered[filtered["days_remaining"] <= 30]
+    elif expiry_filter == "31–60 Days":
+        filtered = filtered[filtered["days_remaining"].between(31, 60)]
+    elif expiry_filter == "More Than 60 Days":
+        filtered = filtered[filtered["days_remaining"] > 60]
+
+    display_cols = [
+        "contract_number", "contract_name", "supplier_name", "commodity_name",
+        "property_name", "linked_to", "contract_start_date", "contract_end_date",
+        "contract_duration_days", "days_remaining", "auto_renewal_flag",
+        "contract_status",
+    ]
+    display_cols = [col for col in display_cols if col in filtered.columns]
+    display = filtered[display_cols].copy()
+    for col in ["contract_start_date", "contract_end_date"]:
+        if col in display.columns:
+            display[col] = pd.to_datetime(display[col], errors="coerce").dt.strftime("%Y-%m-%d").fillna("—")
+
+    rename = {
+        "contract_number": "Contract Number",
+        "contract_name": "Contract Name",
+        "supplier_name": "Supplier",
+        "commodity_name": "Commodity",
+        "property_name": "Property Name",
+        "linked_to": "Linked To",
+        "contract_start_date": "Start Date",
+        "contract_end_date": "End Date",
+        "contract_duration_days": "Contract Duration (Days)",
+        "days_remaining": "Days Remaining",
+        "auto_renewal_flag": "Auto Renewal",
+        "contract_status": "Contract Status",
+    }
+    display = display.rename(columns=rename)
+
+    def property_expiry_style(row):
+        days = row.get("Days Remaining")
+        if pd.isna(days):
+            color = "background-color: #E5E7EB; color: #374151;"
+        elif days <= 30:
+            color = "background-color: #FDE2E2; color: #991B1B; font-weight: 700;"
+        elif days <= 60:
+            color = "background-color: #FFEDD5; color: #9A3412; font-weight: 700;"
+        else:
+            color = "background-color: #DCFCE7; color: #166534; font-weight: 700;"
+        return [
+            color if col == "Property Name" else ""
+            for col in row.index
+        ]
+
+    st.markdown(f"**Complete Contract List ({len(display):,} Records)**")
+    if display.empty:
+        st.info("No contracts match the selected search and expiry filter.")
+    else:
+        formatters = {}
+        for col in ["Contract Duration (Days)", "Days Remaining"]:
+            if col in display.columns:
+                formatters[col] = lambda value: "—" if pd.isna(value) else f"{int(value):,}"
+        styled = display.style.apply(property_expiry_style, axis=1).format(
+            formatters, na_rep="—"
+        )
+        st.dataframe(styled, use_container_width=True, hide_index=True)
+        st.download_button(
+            "Download Complete Contract List CSV",
+            filtered.to_csv(index=False).encode("utf-8"),
+            file_name="energy360_complete_contract_portfolio.csv",
+            mime="text/csv",
+            key="download_contract_portfolio",
+        )
+
 def render_property_energy_management():
     page_heading(
         "Property Energy Management",
@@ -1249,6 +1388,7 @@ try:
     elif page=="Transmission & Distribution": render_grid(start_d,end_d,state)
     elif page=="Energy Consumption": render_consumption(start_d,end_d,state)
     elif page=="Property Energy Management": render_property_energy_management()
+    elif page=="Contract Portfolio": render_contract_portfolio()
     elif page=="Asset Management": render_assets(start_d,end_d,state)
     elif page=="Forecasting & Analytics": render_forecasting(start_d,end_d,state)
     elif page=="Sustainability": render_sustainability(start_d,end_d,state)
