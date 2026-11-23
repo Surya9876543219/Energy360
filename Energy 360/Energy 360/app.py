@@ -878,47 +878,73 @@ def render_property_energy_management():
                 )
 
         view_mode = st.radio(
-            "Energy cost view",
-            ["By commodity", "Monthly by selected"],
+            "View",
+            ["By commodity", "Monthly by commodity"],
             horizontal=True,
-            key=f"property_cost_view_{selected_id}",
+            key=f"property_chart_view_{selected_id}",
         )
-        st.markdown("**Commodity for trend**")
+
         commodities = totals["commodity_name"].dropna().astype(str).tolist()
-        chosen = st.selectbox(
-            "Select a commodity", commodities,
-            key=f"property_commodity_trend_{selected_id}",
-            label_visibility="collapsed",
-        )
-        selected_energy = energy[energy["commodity_name"] == chosen].copy()
+        chosen = None
+        selected_energy = energy.iloc[0:0].copy()
+        if view_mode == "Monthly by commodity":
+            st.markdown("**Select commodity**")
+            chosen = st.selectbox(
+                "Select a commodity", commodities,
+                key=f"property_commodity_trend_{selected_id}",
+                label_visibility="collapsed",
+            )
+            selected_energy = energy[energy["commodity_name"] == chosen].copy()
 
         left, right = st.columns(2, gap="large")
         with left:
-            st.markdown("**Monthly consumption trend**")
-            trend = (
-                selected_energy.groupby("period_start_date", as_index=False)["usage_quantity"]
-                .sum().sort_values("period_start_date")
-            )
-            if not trend.empty:
-                unit_values = selected_energy["usage_unit"].dropna()
-                unit = str(unit_values.iloc[0]) if not unit_values.empty else ""
-                fig = px.line(
-                    trend, x="period_start_date", y="usage_quantity", markers=True,
-                    title=f"{chosen} usage ({unit})",
+            if view_mode == "By commodity":
+                st.markdown("**Energy usage by commodity**")
+                usage_data = totals[["commodity_name", "usage_unit", "total_usage"]].copy()
+                usage_data["commodity_label"] = (
+                    usage_data["commodity_name"].astype(str)
+                    + " (" + usage_data["usage_unit"].astype(str) + ")"
                 )
-                fig.update_traces(line_color="#0878D1", line_width=3, marker_size=7)
+                fig = px.bar(
+                    usage_data, x="commodity_label", y="total_usage",
+                    color="commodity_name", title="Total usage by commodity",
+                )
                 fig.update_layout(
-                    height=360, margin=dict(l=10, r=10, t=45, b=10),
+                    showlegend=False, height=360, margin=dict(l=10, r=10, t=45, b=10),
                     paper_bgcolor="white", plot_bgcolor="white",
                 )
-                fig.update_yaxes(title=unit, gridcolor="#E7EEF4")
+                fig.update_yaxes(title="Usage (native unit)", gridcolor="#E7EEF4")
                 fig.update_xaxes(title="")
                 st.plotly_chart(
                     format_plotly_numbers(fig), use_container_width=True,
-                    key=f"property_usage_{selected_id}",
+                    key=f"property_usage_by_commodity_{selected_id}",
                 )
             else:
-                st.info(f"No monthly usage records are available for {chosen}.")
+                st.markdown(f"**Monthly consumption trend — {chosen}**")
+                trend = (
+                    selected_energy.groupby("period_start_date", as_index=False)["usage_quantity"]
+                    .sum().sort_values("period_start_date")
+                )
+                if not trend.empty:
+                    unit_values = selected_energy["usage_unit"].dropna()
+                    unit = str(unit_values.iloc[0]) if not unit_values.empty else ""
+                    fig = px.line(
+                        trend, x="period_start_date", y="usage_quantity", markers=True,
+                        title=f"{chosen} usage ({unit})",
+                    )
+                    fig.update_traces(line_color="#0878D1", line_width=3, marker_size=7)
+                    fig.update_layout(
+                        height=360, margin=dict(l=10, r=10, t=45, b=10),
+                        paper_bgcolor="white", plot_bgcolor="white",
+                    )
+                    fig.update_yaxes(title=unit, gridcolor="#E7EEF4")
+                    fig.update_xaxes(title="")
+                    st.plotly_chart(
+                        format_plotly_numbers(fig), use_container_width=True,
+                        key=f"property_usage_{selected_id}_{chosen}",
+                    )
+                else:
+                    st.info(f"No monthly usage records are available for {chosen}.")
 
         with right:
             if view_mode == "By commodity":
