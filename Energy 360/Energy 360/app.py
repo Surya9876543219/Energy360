@@ -186,11 +186,22 @@ def get_property_bills(property_id):
 def get_property_procurement(property_id):
     return data_client().property_procurement_data(property_id)
 
+def fmt_k(v, digits=2):
+    """Display values >= 1,000 in thousands (K), with two decimals."""
+    if v is None or pd.isna(v):
+        return "—"
+    number = float(v)
+    return f"{number / 1000:,.{digits}f}K" if abs(number) >= 1000 else f"{number:,.{digits}f}"
+
 def fmt_num(v, digits=2):
-    return "—" if v is None or pd.isna(v) else f"{v:,.{digits}f}"
+    return fmt_k(v, digits)
 
 def fmt_usd(v):
-    return "—" if v is None or pd.isna(v) else f"${v:,.2f}"
+    if v is None or pd.isna(v):
+        return "—"
+    number = float(v)
+    amount = f"{number / 1000:,.2f}K" if abs(number) >= 1000 else f"{number:,.2f}"
+    return "$" + amount
 
 def page_heading(title, subtitle):
     st.title(title)
@@ -207,8 +218,8 @@ def show_df(df, title, limit=500):
     if df is None or df.empty:
         st.info("No records match the selected filters.")
         return
-    float_formats = {col: "{:,.2f}" for col in df.select_dtypes(include=["number"]).columns}
-    st.dataframe(df.head(limit).style.format(float_formats, na_rep="—"), use_container_width=True, hide_index=True)
+    number_formats = {col: fmt_k for col in df.select_dtypes(include=["number"]).columns}
+    st.dataframe(df.head(limit).style.format(number_formats, na_rep="—"), use_container_width=True, hide_index=True)
     st.download_button(
         f"Download {title} CSV",
         df.to_csv(index=False).encode("utf-8"),
@@ -294,13 +305,53 @@ def render_hero(page):
 
 
 def format_plotly_numbers(fig):
-    """Apply consistent two-decimal numeric formatting to all Plotly visuals."""
-    fig.update_yaxes(tickformat=",.2f", exponentformat="none", showexponent="none")
-    fig.update_layout(
-        coloraxis=dict(
-            colorbar=dict(tickformat=",.2f", exponentformat="none", showexponent="none")
-        )
-    )
+    """Display chart axes and color scales in thousands (K)."""
+    def _axis_ticks(values):
+        arr = np.asarray(values, dtype=float).ravel()
+        arr = arr[np.isfinite(arr)]
+        if arr.size == 0:
+            return None, None
+        low, high = float(arr.min()), float(arr.max())
+        ticks = np.array([low]) if low == high else np.linspace(low, high, 5)
+        labels = [
+            f"{value / 1000:,.2f}K" if abs(value) >= 1000 else f"{value:,.2f}"
+            for value in ticks
+        ]
+        return ticks.tolist(), labels
+
+    for axis_name, attr in (("xaxis", "x"), ("yaxis", "y")):
+        values = []
+        for trace in fig.data:
+            raw = getattr(trace, attr, None)
+            if raw is not None:
+                try:
+                    values.extend(np.asarray(raw, dtype=float).ravel().tolist())
+                except (TypeError, ValueError):
+                    pass
+        tickvals, ticktext = _axis_ticks(values)
+        if tickvals:
+            fig.update_layout(**{axis_name: dict(tickmode="array", tickvals=tickvals, ticktext=ticktext)})
+
+    for trace in fig.data:
+        if getattr(trace, "marker", None) is not None:
+            try:
+                raw_color = trace.marker.color
+                if raw_color is not None and not isinstance(raw_color, str):
+                    tickvals, ticktext = _axis_ticks(raw_color)
+                    if tickvals:
+                        trace.marker.colorbar = dict(tickmode="array", tickvals=tickvals, ticktext=ticktext)
+            except (TypeError, ValueError, AttributeError):
+                pass
+        template = getattr(trace, "hovertemplate", None)
+        if isinstance(template, str):
+            trace.hovertemplate = template.replace("%{y}", "%{y:,.2f}").replace(
+                "%{z}", "%{z:,.2f}"
+            ).replace("%{marker.color}", "%{marker.color:,.2f}").replace(
+                "%{value}", "%{value:,.2f}"
+            )
+        if getattr(trace, "type", None) == "pie":
+            trace.texttemplate = "%{percent:.2%}"
+    return fig
     for trace in fig.data:
         if getattr(trace, "marker", None) is not None:
             try:
@@ -888,8 +939,8 @@ def render_property_energy_management():
             if frame is None or frame.empty:
                 st.info(f"No {title.lower()} records are linked to this property.")
             else:
-                float_formats = {col: "{:,.2f}" for col in frame.select_dtypes(include=["number"]).columns}
-                st.dataframe(frame.style.format(float_formats, na_rep="—"), use_container_width=True, hide_index=True)
+                number_formats = {col: fmt_k for col in frame.select_dtypes(include=["number"]).columns}
+                st.dataframe(frame.style.format(number_formats, na_rep="—"), use_container_width=True, hide_index=True)
                 st.download_button(
                     f"Download {title} CSV",
                     frame.to_csv(index=False).encode("utf-8"),
