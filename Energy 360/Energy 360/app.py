@@ -487,6 +487,50 @@ header[data-testid="stHeader"],
     opacity: 1 !important;
 }
 
+
+/* Crop/zoom the hero artwork so its source-image edges never appear as a frame. */
+.hero-banner {
+    border-top: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    background-color: #082D4D !important;
+}
+.hero-banner:after {
+    top: -10px !important;
+    right: -14px !important;
+    bottom: -10px !important;
+    left: 58% !important;
+    width: auto !important;
+    background-size: cover !important;
+    background-position: center 54% !important;
+    transform: scale(1.07) !important;
+    transform-origin: center center !important;
+}
+@media (max-width: 900px) {
+    .hero-banner:after {
+        left: 68% !important;
+        right: -12px !important;
+        transform: scale(1.08) !important;
+    }
+}
+@media (max-width: 600px) {
+    .hero-banner:after {
+        left: 72% !important;
+        right: -10px !important;
+        transform: scale(1.1) !important;
+    }
+}
+/* Eliminate any residual top gap before the banner. */
+[data-testid="stMain"],
+section[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],
+section[data-testid="stMain"] .block-container {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
