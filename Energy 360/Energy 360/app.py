@@ -3447,15 +3447,24 @@ def _ask_energy360_ai(page, question, history, start_d=None, end_d=None, state="
         "Allowed route_to values: " + ", ".join(allowed_pages) + ". "
         "Current page: " + page + ". Current page context JSON: " + json.dumps(context, default=str)[:18000]
     )
-    messages = [{"role": "system", "content": system_message}]
+    # The Databricks SDK expects ChatMessage objects here, not plain dictionaries.
+    # Passing dictionaries can trigger: 'dict' object has no attribute 'as_dict'.
+    from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
+
+    messages = [ChatMessage(role=ChatMessageRole.SYSTEM, content=system_message)]
     for item in history[-8:]:
         if item.get("role") in ("user", "assistant"):
-            messages.append({"role": item["role"], "content": item.get("content", "")[:2500]})
-    messages.append({"role": "user", "content": question[:2500]})
+            messages.append(
+                ChatMessage(
+                    role=ChatMessageRole(item["role"].upper()),
+                    content=item.get("content", "")[:2500],
+                )
+            )
+    messages.append(ChatMessage(role=ChatMessageRole.USER, content=question[:2500]))
     response = WorkspaceClient().serving_endpoints.query(
         name=endpoint, messages=messages, max_tokens=900, temperature=0.15
     )
-    payload = response.as_dict() if hasattr(response, "as_dict") else response
+    payload = response.as_dict() if callable(getattr(response, "as_dict", None)) else response
     if not isinstance(payload, dict):
         raise RuntimeError("The model endpoint returned an unsupported response format.")
     choices = payload.get("choices") or []
