@@ -2093,6 +2093,7 @@ def render_property_energy_management():
                 else:
                     st.info(f"No monthly cost records are available for {chosen}.")
 
+    st.subheader("Property Operations")
     tabs = st.tabs([
         "Meters & Readings", "Meter Contracts", "Utility Accounts", "Vendors",
         "Rate Details", "Property Contracts", "Bills", "Procurement",
