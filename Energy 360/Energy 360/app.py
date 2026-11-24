@@ -1046,6 +1046,8 @@ def render_crud_entity(entity, title, property_id):
         elif action == "delete":
             st.session_state[f"crud_active_delete_{entity}_{property_id}"] = action_record
             st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+        # Consume the URL action once; session state keeps the selected row active.
+        st.query_params.clear()
 
     visible = list(rows.columns)
     header_html = "".join(
