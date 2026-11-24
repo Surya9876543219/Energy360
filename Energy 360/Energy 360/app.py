@@ -1064,22 +1064,29 @@ def render_crud_entity(entity, title, property_id):
         max-width:none !important; gap:0 !important;
         border-bottom:1px solid #E5EDF4 !important; padding:0 !important;
       }}
-      .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="column"] {{
+      .st-key-{grid_key} [class*="st-key-crud-grid-row-"] [data-testid="stHorizontalBlock"] {{
+        display:flex !important; flex-wrap:nowrap !important;
+        width:max-content !important; min-width:max-content !important;
+        gap:0 !important; align-items:stretch !important;
+      }}
+      .st-key-{grid_key} [class*="st-key-crud-grid-row-"] [data-testid="column"] {{
         box-sizing:border-box !important;
         flex:0 0 {data_width}px !important; width:{data_width}px !important;
         min-width:{data_width}px !important; max-width:{data_width}px !important;
         padding:8px 10px !important;
         border-left:1px solid #D9E1EA !important;
         border-top:1px solid #D9E1EA !important;
+        border-bottom:1px solid #D9E1EA !important;
         background:#FFFFFF !important;
+        text-align:left !important;
       }}
-      .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="column"]:last-child {{
-        border-right:1px solid #D9E1EA !important;
-      }}
-      .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-last-child(-n+2) {{
+      .st-key-{grid_key} [class*="st-key-crud-grid-row-"] [data-testid="column"]:nth-last-child(-n+2) {{
         box-sizing:border-box !important;
         flex:0 0 88px !important; width:88px !important;
         min-width:88px !important; max-width:88px !important;
+      }}
+      .st-key-{grid_key} [class*="st-key-crud-grid-row-"] [data-testid="column"]:last-child {{
+        border-right:1px solid #D9E1EA !important;
       }}
       .st-key-{grid_key} .crud-header-row {{ margin:0 !important; padding:0 !important; }}
       .st-key-{grid_key} .crud-header-cell {{
@@ -1112,42 +1119,44 @@ def render_crud_entity(entity, title, property_id):
     with st.container(key=grid_key):
         # Render headers with the exact same Streamlit column structure and
         # width ratios as each data row. This guarantees header/value alignment.
-        header = st.columns(widths, gap=0, vertical_alignment="center")
-        for idx, col_name in enumerate(visible):
-            with header[idx]:
-                st.markdown(
+        with st.container(key=f"crud-grid-row-{entity}-{property_id}-header"):
+            header = st.columns(widths, gap=0, vertical_alignment="center")
+            for idx, col_name in enumerate(visible):
+                with header[idx]:
+                    st.markdown(
                     f'<div style="box-sizing:border-box;display:block;width:{data_width-20}px;min-height:42px;margin:0;padding:0;text-align:left;white-space:normal;overflow-wrap:anywhere;line-height:1.2;font-weight:650;">{html.escape("".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split()))}</div>',
-                    unsafe_allow_html=True,
-                )
-        with header[-2]:
-            st.markdown("")
-        with header[-1]:
-            st.markdown("")
+                        unsafe_allow_html=True,
+                    )
+            with header[-2]:
+                st.markdown("")
+            with header[-1]:
+                st.markdown("")
 
         for _, record in rows.iterrows():
             record_id = str(record[key_col])
-            cells = st.columns(widths, gap=0, vertical_alignment="center")
-            for idx, col_name in enumerate(visible):
-                raw_value = record.get(col_name)
-                if pd.isna(raw_value):
-                    display_value = "—"
-                elif isinstance(raw_value, pd.Timestamp):
-                    display_value = raw_value.strftime("%Y-%m-%d")
-                else:
-                    display_value = str(raw_value)
-                with cells[idx]:
-                    st.markdown(
-                        f'<div style="box-sizing:border-box;display:block;width:{data_width-20}px;min-width:{data_width-20}px;margin:0;padding:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
-                        unsafe_allow_html=True,
-                    )
-            with cells[-2]:
-                if st.button("Edit", key=f"crud_edit_row_{entity}_{property_id}_{record_id}", use_container_width=True):
-                    st.session_state[f"crud_active_edit_{entity}_{property_id}"] = record_id
-                    st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
-            with cells[-1]:
-                if st.button("Delete", key=f"crud_delete_row_{entity}_{property_id}_{record_id}", use_container_width=True):
-                    st.session_state[f"crud_active_delete_{entity}_{property_id}"] = record_id
-                    st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+            with st.container(key=f"crud-grid-row-{entity}-{property_id}-{record_id}"):
+                cells = st.columns(widths, gap=0, vertical_alignment="center")
+                for idx, col_name in enumerate(visible):
+                    raw_value = record.get(col_name)
+                    if pd.isna(raw_value):
+                        display_value = "—"
+                    elif isinstance(raw_value, pd.Timestamp):
+                        display_value = raw_value.strftime("%Y-%m-%d")
+                    else:
+                        display_value = str(raw_value)
+                    with cells[idx]:
+                        st.markdown(
+                            f'<div style="box-sizing:border-box;display:block;width:{data_width-20}px;min-width:{data_width-20}px;margin:0;padding:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
+                            unsafe_allow_html=True,
+                        )
+                with cells[-2]:
+                    if st.button("Edit", key=f"crud_edit_row_{entity}_{property_id}_{record_id}", use_container_width=True):
+                        st.session_state[f"crud_active_edit_{entity}_{property_id}"] = record_id
+                        st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+                with cells[-1]:
+                    if st.button("Delete", key=f"crud_delete_row_{entity}_{property_id}_{record_id}", use_container_width=True):
+                        st.session_state[f"crud_active_delete_{entity}_{property_id}"] = record_id
+                        st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
 
             # When an action is selected at the far-right end, reset the horizontal
             # table viewport to the first column so the inline form is immediately visible.
