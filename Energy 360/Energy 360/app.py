@@ -2482,21 +2482,89 @@ def render_budgets_savings():
             else:
                 st.info("No monthly budget or actual-cost records are available for this property.")
 
+            # Build a true commodity-level comparison. A budget with no
+            # commodity_id covers all commodities, so allocate it across
+            # commodities in proportion to their actual cost for the same
+            # property and budget period. This keeps the allocated budgets
+            # additive and avoids assigning the full budget to every commodity.
             commodity_rows = []
-            for _, row in comparison.iterrows():
-                commodity_name = "All Commodities"
-                if pd.notna(row.get("commodity_id")) and str(row.get("commodity_id")).strip():
-                    found = actual_all.loc[actual_all["commodity_id"].astype(str) == str(row["commodity_id"]), "commodity_name"] if not actual_all.empty else pd.Series(dtype=str)
-                    if not found.empty:
-                        commodity_name = str(found.iloc[0])
-                    else:
-                        commodity_name = str(row["commodity_id"])
-                commodity_rows.append({"Commodity":commodity_name,"Budget":float(row["budget_amount"] or 0),"Actual Cost":float(row["actual_cost"] or 0)})
+            for _, budget_row in budget_rows.iterrows():
+                start_date = pd.to_datetime(budget_row.get("period_start_date"), errors="coerce")
+                end_date = pd.to_datetime(budget_row.get("period_end_date"), errors="coerce")
+                matched_all = actual_all.copy()
+                if not matched_all.empty:
+                    matched_all["cost_amount"] = pd.to_numeric(matched_all["cost_amount"], errors="coerce").fillna(0)
+                    matched_all["period_start_date"] = pd.to_datetime(matched_all["period_start_date"], errors="coerce")
+                    matched_all["period_end_date"] = pd.to_datetime(matched_all["period_end_date"], errors="coerce")
+                    if pd.notna(start_date) and pd.notna(end_date):
+                        matched_all = matched_all[
+                            (matched_all["period_start_date"] >= start_date)
+                            & (matched_all["period_end_date"] <= end_date)
+                        ]
+                budget_commodity_id = budget_row.get("commodity_id")
+                if pd.notna(budget_commodity_id) and str(budget_commodity_id).strip():
+                    matched_all = matched_all[
+                        matched_all["commodity_id"].astype(str) == str(budget_commodity_id)
+                    ] if not matched_all.empty else matched_all
+                if not matched_all.empty:
+                    commodity_actual = matched_all.groupby("commodity_name", dropna=False, as_index=False)["cost_amount"].sum()
+                    commodity_actual["Commodity"] = commodity_actual["commodity_name"].fillna("Unclassified")
+                    if selected_commodity != "All":
+                        commodity_actual = commodity_actual[commodity_actual["Commodity"].astype(str) == selected_commodity]
+                    total_actual_for_all_commodities = float(matched_all["cost_amount"].sum())
+                    budget_amount_for_period = float(pd.to_numeric(
+                        pd.Series([budget_row.get("budget_amount")]), errors="coerce"
+                    ).fillna(0).iloc[0])
+                    for _, commodity_row in commodity_actual.iterrows():
+                        commodity_cost = float(commodity_row["cost_amount"])
+                        if pd.notna(budget_commodity_id) and str(budget_commodity_id).strip():
+                            allocated_budget = budget_amount_for_period
+                        elif total_actual_for_all_commodities > 0:
+                            allocated_budget = budget_amount_for_period * commodity_cost / total_actual_for_all_commodities
+                        else:
+                            allocated_budget = 0.0
+                        commodity_rows.append({
+                            "Commodity": str(commodity_row["Commodity"]),
+                            "Budget": allocated_budget,
+                            "Actual Cost": commodity_cost,
+                        })
+                elif pd.notna(budget_commodity_id) and str(budget_commodity_id).strip():
+                    label_rows = actual_all.loc[
+                        actual_all["commodity_id"].astype(str) == str(budget_commodity_id), "commodity_name"
+                    ] if not actual_all.empty else pd.Series(dtype=str)
+                    commodity_label = str(label_rows.iloc[0]) if not label_rows.empty else str(budget_commodity_id)
+                    if selected_commodity == "All" or selected_commodity == commodity_label:
+                        commodity_rows.append({
+                            "Commodity": commodity_label,
+                            "Budget": float(budget_row.get("budget_amount") or 0),
+                            "Actual Cost": 0.0,
+                        })
             commodity_df = pd.DataFrame(commodity_rows)
             if not commodity_df.empty:
-                commodity_df = commodity_df.groupby("Commodity",as_index=False)[["Budget","Actual Cost"]].sum()
+                commodity_df = commodity_df.groupby("Commodity", as_index=False)[["Budget", "Actual Cost"]].sum()
                 st.subheader("Budget vs Actual by Commodity")
-                st.bar_chart(commodity_df.set_index("Commodity"), use_container_width=True)
+                commodity_long = commodity_df.melt(
+                    id_vars="Commodity", value_vars=["Budget", "Actual Cost"],
+                    var_name="Measure", value_name="Amount"
+                )
+                fig = px.bar(
+                    commodity_long, x="Commodity", y="Amount", color="Measure",
+                    barmode="group", category_orders={"Commodity": sorted(commodity_df["Commodity"].astype(str).unique())},
+                    labels={"Commodity": "Commodity", "Amount": "Amount (USD)", "Measure": "Comparison"},
+                    title="Budget vs Actual Cost by Commodity",
+                )
+                fig.update_layout(
+                    height=370, paper_bgcolor="white", plot_bgcolor="white",
+                    margin=dict(l=10, r=10, t=50, b=20), legend_title_text="",
+                    xaxis_title="Commodity", yaxis_title="Amount (USD)",
+                )
+                fig.update_yaxes(gridcolor="#E7EEF4", tickprefix="$")
+                st.plotly_chart(
+                    format_plotly_numbers(fig), use_container_width=True,
+                    key="budget_commodity_comparison",
+                )
+            else:
+                st.info("No commodity-level budget or actual-cost records are available for the selected filters.")
 
             display = comparison.copy()
             display["status"] = display["utilization_pct"].apply(
