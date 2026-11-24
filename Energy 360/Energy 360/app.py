@@ -1034,35 +1034,44 @@ def render_crud_entity(entity, title, property_id):
         st.caption(f"No {title.lower()} records found.")
         return
 
-    # Keep the actions visually attached to each individual record.
-    preferred = [c for c in (
-        "meter_number","meter_name","account_number","vendor_name","contract_number",
-        "contract_name","bill_number","invoice_number","vendor_invoice_number",
-        "purchase_order_number","rate_code","rate_class_name","component_name",
-        "reading_date","bill_date","invoice_date","payment_date","effective_end_date"
-    ) if c in rows.columns]
-    visible = preferred[:3] or [c for c in rows.columns if c != key_col][:3]
-    for row_index, (_, record) in enumerate(rows.iterrows()):
+    # Render a compact table-like list: all record fields stay on one line,
+    # with Edit and Delete actions aligned in the final columns.
+    display_cols = [c for c in rows.columns if c != key_col]
+    if not display_cols:
+        display_cols = [key_col]
+    visible = display_cols[:5]
+    column_labels = [c.replace("_", " ").title() for c in visible]
+    widths = [2.0] * len(visible) + [0.72, 0.82]
+    header_cells = st.columns(widths, vertical_alignment="center")
+    for idx, label in enumerate(column_labels):
+        with header_cells[idx]:
+            st.markdown(f"**{label}**")
+    with header_cells[-2]:
+        st.markdown("**Edit**")
+    with header_cells[-1]:
+        st.markdown("**Delete**")
+    st.divider()
+
+    for _, record in rows.iterrows():
         record_id = str(record[key_col])
-        cells = st.columns([2.2, 2.2, 2.2, 0.75, 0.8], vertical_alignment="center")
-        for idx in range(3):
+        cells = st.columns(widths, vertical_alignment="center")
+        for idx, col_name in enumerate(visible):
             with cells[idx]:
-                col_name = visible[idx] if idx < len(visible) else None
-                if col_name:
-                    value = record.get(col_name)
-                    value = "—" if pd.isna(value) else str(value)
-                    st.caption(col_name.replace("_", " ").title())
-                    st.write(value[:70])
-                elif idx == 0:
-                    st.caption(key_col.replace("_", " ").title())
-                    st.write(record_id[:70])
+                value = record.get(col_name)
+                if pd.isna(value):
+                    value = "—"
+                elif isinstance(value, (pd.Timestamp,)):
+                    value = value.strftime("%Y-%m-%d")
+                else:
+                    value = str(value)
+                st.write(value[:55])
         edit_key = f"crud_edit_row_{entity}_{property_id}_{record_id}"
         delete_key = f"crud_delete_row_{entity}_{property_id}_{record_id}"
-        with cells[3]:
+        with cells[-2]:
             if st.button("Edit", key=edit_key, use_container_width=True):
                 st.session_state[f"crud_active_edit_{entity}_{property_id}"] = record_id
                 st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
-        with cells[4]:
+        with cells[-1]:
             if st.button("Delete", key=delete_key, use_container_width=True):
                 st.session_state[f"crud_active_delete_{entity}_{property_id}"] = record_id
                 st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
@@ -1136,9 +1145,7 @@ def render_crud_entity(entity, title, property_id):
                                  use_container_width=True):
                         st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
                         st.rerun()
-        if row_index < len(rows) - 1:
-            st.divider()
-
+        st.divider()
 
 def fmt_k(v, digits=2):
     """Display values >= 1,000 in thousands (K), with two decimals."""
