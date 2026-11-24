@@ -145,7 +145,6 @@ USING (
   SELECT * FROM VALUES
     ('BUD-HOU-2026','PROP-HOU-001','2026 Energy Budget - Houston Office Center',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',185000.00,'USD','Draft'),
     ('BUD-DAL-2026','PROP-DAL-001','2026 Energy Budget - Dallas Distribution Campus',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',310000.00,'USD','Draft'),
-    ('BUD-PHX-2026','PROP-PHX-001','2026 Energy Budget - Phoenix Retail Plaza',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',114550.23,'USD','Draft'),
     ('BUD-CHI-2026','PROP-CHI-001','2026 Energy Budget - Chicago Residential Tower',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',225000.00,'USD','Draft'),
     ('BUD-NYC-2026','PROP-NYC-001','2026 Energy Budget - New York Business Center',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',142000.00,'USD','Draft')
   AS s(budget_id,property_id,budget_name,fiscal_year,commodity_id,period_start_date,period_end_date,budget_amount,currency_code,approval_status)
