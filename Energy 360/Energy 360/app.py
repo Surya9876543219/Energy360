@@ -964,8 +964,8 @@ def get_crud_columns(entity):
 def get_crud_rows(entity, property_id):
     return data_client().crud_rows(entity, property_id)
 
-def get_crud_choices(entity, column):
-    return data_client().crud_choices(entity, column)
+def get_crud_choices(entity, column, property_id):
+    return data_client().crud_choices(entity, column, property_id)
 
 def save_crud_record(entity, values, record_id=None):
     return data_client().crud_save(entity, values, record_id)
@@ -998,7 +998,7 @@ def render_crud_entity(entity, title, property_id):
                 name, dtype = col["name"], col["type"]
                 label = name.replace("_", " ").title()
                 if name in rels:
-                    options = [("", "— Select —")] + get_crud_choices(entity, name)
+                    options = [("", "— Select —")] + get_crud_choices(entity, name, property_id)
                     chosen = st.selectbox(label, options, format_func=lambda x: x[1],
                                           key=f"crud_add_{entity}_{name}_{property_id}")
                     values[name] = chosen[0] or None
