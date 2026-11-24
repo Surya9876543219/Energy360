@@ -120,6 +120,126 @@ h1, h2, h3, h4, h5, h6,
     font-weight: 800 !important;
     text-transform: capitalize !important;
 }
+
+/* Energy360 typography system: consistent, compact and readable across pages. */
+html, body, [class*="css"], .stApp {
+    font-family: Inter, "Segoe UI", Arial, sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+}
+.stMarkdown, .stMarkdown p, .stText, [data-testid="stText"],
+[data-testid="stCaptionContainer"], .stCaption, .stAlert,
+[data-testid="stAlert"] p, .stExpander p {
+    font-size: 0.875rem !important;
+    line-height: 1.5 !important;
+}
+h1, .stTitle, [data-testid="stTitle"] {
+    font-size: 1.55rem !important;
+    line-height: 1.25 !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.35px !important;
+}
+h2, .stSubheader, [data-testid="stSubheader"] {
+    font-size: 1.18rem !important;
+    line-height: 1.35 !important;
+    font-weight: 650 !important;
+    letter-spacing: -0.2px !important;
+}
+h3, h4, h5, h6 {
+    font-size: 1rem !important;
+    line-height: 1.35 !important;
+    font-weight: 650 !important;
+}
+.hero-title { font-size: 1.85rem !important; line-height: 1.2 !important; font-weight: 750 !important; }
+.hero-subtitle { font-size: 0.88rem !important; line-height: 1.45 !important; }
+.sidebar-brand-name { font-size: 1.35rem !important; }
+.sidebar-brand-sub { font-size: 0.75rem !important; }
+.sidebar-section { font-size: 0.68rem !important; letter-spacing: 0.8px !important; }
+[data-testid="stSidebar"] .stButton > button {
+    font-size: 0.84rem !important;
+    line-height: 1.35 !important;
+    font-weight: 550 !important;
+    padding: 0.48rem 0.65rem !important;
+}
+label, [data-testid="stWidgetLabel"], [data-testid="stWidgetLabel"] p,
+.stSelectbox label, .stTextInput label, .stDateInput label,
+.stNumberInput label, .stRadio label, .stMultiSelect label {
+    font-size: 0.82rem !important;
+    line-height: 1.35 !important;
+    font-weight: 600 !important;
+}
+input, textarea, [data-baseweb="select"] *, [data-baseweb="input"] *,
+[data-testid="stDateInput"] input, [data-testid="stNumberInput"] input {
+    font-size: 0.86rem !important;
+}
+.stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] button {
+    font-size: 0.84rem !important;
+    line-height: 1.35 !important;
+    font-weight: 600 !important;
+}
+div[data-testid="stMetric"] { padding: 12px 14px !important; }
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] p {
+    font-size: 0.78rem !important;
+    line-height: 1.3 !important;
+    font-weight: 600 !important;
+}
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] div {
+    font-size: 1.45rem !important;
+    line-height: 1.25 !important;
+    font-weight: 700 !important;
+}
+[data-testid="stMetricDelta"], [data-testid="stMetricDelta"] div {
+    font-size: 0.75rem !important;
+}
+.metric-label { font-size: 0.76rem !important; }
+.metric-value { font-size: 1.25rem !important; }
+.chart-title, .property-chart-section-heading {
+    font-size: 0.98rem !important;
+    line-height: 1.35 !important;
+    font-weight: 650 !important;
+}
+[data-testid="stTabs"] button[role="tab"] {
+    font-size: 0.82rem !important;
+    line-height: 1.3 !important;
+    font-weight: 600 !important;
+    padding: 0.55rem 0.8rem !important;
+}
+[data-testid="stDataFrame"], [data-testid="stDataFrame"] *,
+[data-testid="stTable"], [data-testid="stTable"] * {
+    font-size: 0.80rem !important;
+    line-height: 1.4 !important;
+}
+[data-testid="stDataFrame"] [role="columnheader"],
+[data-testid="stTable"] th {
+    font-size: 0.78rem !important;
+    font-weight: 650 !important;
+}
+[data-testid="stCaptionContainer"] p, .stCaption {
+    font-size: 0.76rem !important;
+    color: #62778A !important;
+}
+.filter-heading { font-size: 0.88rem !important; }
+.utility-item { font-size: 0.92rem !important; }
+.utility-avatar { font-size: 0.72rem !important; }
+.js-plotly-plot, .js-plotly-plot text {
+    font-family: Inter, "Segoe UI", Arial, sans-serif !important;
+}
+.js-plotly-plot .xtick text, .js-plotly-plot .ytick text,
+.js-plotly-plot .legendtext, .js-plotly-plot .annotation-text {
+    font-size: 11px !important;
+}
+.js-plotly-plot .gtitle { font-size: 15px !important; font-weight: 500 !important; }
+.js-plotly-plot .xtitle, .js-plotly-plot .ytitle {
+    font-size: 12px !important;
+    font-weight: 500 !important;
+}
+@media (max-width: 900px) {
+    html, body, [class*="css"], .stApp { font-size: 13px !important; }
+    .hero-title { font-size: 1.45rem !important; }
+    h1, .stTitle, [data-testid="stTitle"] { font-size: 1.35rem !important; }
+    h2, .stSubheader, [data-testid="stSubheader"] { font-size: 1.08rem !important; }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
