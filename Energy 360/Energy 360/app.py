@@ -1141,79 +1141,79 @@ def render_crud_entity(entity, title, property_id):
                     st.session_state[f"crud_active_delete_{entity}_{property_id}"] = rid
                     st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
 
-    for _, record in rows.iterrows():
-        record_id = str(record[key_col])
-        active_edit = st.session_state.get(f"crud_active_edit_{entity}_{property_id}")
-        if active_edit == record_id:
-            current = record
-            st.markdown('<div id="crud-form"></div>', unsafe_allow_html=True)
-            with st.container(border=True):
-                st.markdown(f"**Edit {title.rstrip('s')} — {record_id}**")
-                with st.form(f"crud_edit_{entity}_{property_id}_{record_id}"):
-                    values = {}
-                    for col in editable:
-                        name, dtype = col["name"], col["type"]
-                        label = name.replace("_", " ").title()
-                        current_value = current.get(name)
-                        if name in rels:
-                            options = get_crud_choices(entity, name, property_id)
-                            option_ids = [x[0] for x in options]
-                            current_id = str(current_value) if pd.notna(current_value) else ""
-                            if current_id and current_id not in option_ids:
-                                options = [(current_id, current_id)] + options
-                            options = [("", "— None —")] + options
-                            idx = next((i for i,x in enumerate(options) if x[0] == current_id), 0)
-                            chosen = st.selectbox(label, options, index=idx, format_func=lambda x: x[1],
-                                                  key=f"crud_edit_{entity}_{name}_{record_id}")
-                            values[name] = chosen[0] or None
-                        elif dtype == "boolean":
-                            values[name] = st.checkbox(label,
-                                value=bool(current_value) if pd.notna(current_value) else False,
-                                key=f"crud_edit_{entity}_{name}_{record_id}")
-                        else:
-                            default = "" if pd.isna(current_value) else str(current_value)
-                            values[name] = st.text_input(label, value=default,
-                                key=f"crud_edit_{entity}_{name}_{record_id}")
+                active_edit = st.session_state.get(f"crud_active_edit_{entity}_{property_id}")
+                if active_edit == rid:
+                current = table_record
+                st.markdown('<div id="crud-form"></div>', unsafe_allow_html=True)
+                with st.container(border=True):
+                    st.markdown(f"**Edit {title.rstrip('s')} — {rid}**")
+                    with st.form(f"crud_edit_{entity}_{property_id}_{rid}"):
+                        values = {}
+                        for col in editable:
+                            name, dtype = col["name"], col["type"]
+                            label = name.replace("_", " ").title()
+                            current_value = current.get(name)
+                            if name in rels:
+                                options = get_crud_choices(entity, name, property_id)
+                                option_ids = [x[0] for x in options]
+                                current_id = str(current_value) if pd.notna(current_value) else ""
+                                if current_id and current_id not in option_ids:
+                                    options = [(current_id, current_id)] + options
+                                options = [("", "— None —")] + options
+                                idx = next((i for i,x in enumerate(options) if x[0] == current_id), 0)
+                                chosen = st.selectbox(label, options, index=idx, format_func=lambda x: x[1],
+                                                      key=f"crud_edit_{entity}_{name}_{rid}")
+                                values[name] = chosen[0] or None
+                            elif dtype == "boolean":
+                                values[name] = st.checkbox(label,
+                                    value=bool(current_value) if pd.notna(current_value) else False,
+                                    key=f"crud_edit_{entity}_{name}_{rid}")
+                            else:
+                                default = "" if pd.isna(current_value) else str(current_value)
+                                values[name] = st.text_input(label, value=default,
+                                    key=f"crud_edit_{entity}_{name}_{rid}")
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            submitted = st.form_submit_button("Save Changes", type="primary", use_container_width=True)
+                        with c2:
+                            cancel = st.form_submit_button("Cancel", use_container_width=True)
+                        if submitted:
+                            try:
+                                save_crud_record(entity, values, rid)
+                                st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+                                clear_property_crud_cache()
+                                st.success("Record updated.")
+                                st.rerun()
+                            except DataAccessError as exc:
+                                st.error(f"Update blocked: {exc}")
+                        elif cancel:
+                            st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+                            st.rerun()
+
+                active_delete = st.session_state.get(f"crud_active_delete_{entity}_{property_id}")
+                if active_delete == rid:
+                st.markdown('<div id="crud-form"></div>', unsafe_allow_html=True)
+                with st.container(border=True):
+                    st.warning(f"Delete this {title.rstrip('s')} record? This cannot be undone.")
                     c1, c2 = st.columns(2)
                     with c1:
-                        submitted = st.form_submit_button("Save Changes", type="primary", use_container_width=True)
+                        if st.button("Confirm Delete", key=f"crud_confirm_delete_{entity}_{rid}",
+                                     type="primary", use_container_width=True):
+                            try:
+                                delete_crud_record(entity, rid)
+                                st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+                                clear_property_crud_cache()
+                                st.success("Record deleted.")
+                                st.rerun()
+                            except DataAccessError as exc:
+                                st.error(f"Deletion blocked: {exc}")
                     with c2:
-                        cancel = st.form_submit_button("Cancel", use_container_width=True)
-                    if submitted:
-                        try:
-                            save_crud_record(entity, values, record_id)
-                            st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
-                            clear_property_crud_cache()
-                            st.success("Record updated.")
-                            st.rerun()
-                        except DataAccessError as exc:
-                            st.error(f"Update blocked: {exc}")
-                    elif cancel:
-                        st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
-                        st.rerun()
-
-        active_delete = st.session_state.get(f"crud_active_delete_{entity}_{property_id}")
-        if active_delete == record_id:
-            st.markdown('<div id="crud-form"></div>', unsafe_allow_html=True)
-            with st.container(border=True):
-                st.warning(f"Delete this {title.rstrip('s')} record? This cannot be undone.")
-                c1, c2 = st.columns(2)
-                with c1:
-                    if st.button("Confirm Delete", key=f"crud_confirm_delete_{entity}_{record_id}",
-                                 type="primary", use_container_width=True):
-                        try:
-                            delete_crud_record(entity, record_id)
+                        if st.button("Cancel", key=f"crud_cancel_delete_{entity}_{rid}",
+                                     use_container_width=True):
                             st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
-                            clear_property_crud_cache()
-                            st.success("Record deleted.")
                             st.rerun()
-                        except DataAccessError as exc:
-                            st.error(f"Deletion blocked: {exc}")
-                with c2:
-                    if st.button("Cancel", key=f"crud_cancel_delete_{entity}_{record_id}",
-                                 use_container_width=True):
-                        st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
-                        st.rerun()
+
+
 
 
 def fmt_k(v, digits=2):
