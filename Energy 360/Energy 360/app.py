@@ -1041,7 +1041,7 @@ def render_crud_entity(entity, title, property_id):
     # horizontally scrollable. Each data column has a fixed readable width.
     visible = list(rows.columns)
     data_width = 132
-    widths = [1] * len(visible) + [1, 1]
+    widths = [data_width] * len(visible) + [88, 88]
     grid_key = f"crud-native-grid-{entity}-{property_id}"
     st.markdown(f"""
     <style>
