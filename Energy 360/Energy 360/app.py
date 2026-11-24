@@ -1118,7 +1118,7 @@ def render_crud_entity(entity, title, property_id):
 
         for _, record in rows.iterrows():
             record_id = str(record[key_col])
-            cells = st.columns(widths, gap="none", vertical_alignment="center")
+            cells = st.columns(widths, gap=0, vertical_alignment="center")
             for idx, col_name in enumerate(visible):
                 raw_value = record.get(col_name)
                 if pd.isna(raw_value):
