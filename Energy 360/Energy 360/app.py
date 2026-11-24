@@ -1799,12 +1799,16 @@ def render_dashboard(start_d, end_d, state):
         days = pd.to_numeric(contracts.get("days_remaining", pd.Series(dtype=float)), errors="coerce")
         active = contracts["contract_status"].astype(str).str.lower().isin(["active","approved"])
         expiring = days.between(0,90)
-        annual_value = pd.to_numeric(contracts.get("estimated_annual_value", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()
+        contract_count = contracts["contract_id"].nunique() if "contract_id" in contracts else len(contracts)
+        active_count = contracts.loc[active, "contract_id"].nunique() if "contract_id" in contracts else int(active.sum())
+        expiring_count = contracts.loc[expiring, "contract_id"].nunique() if "contract_id" in contracts else int(expiring.sum())
+        annual_values = pd.to_numeric(contracts.get("estimated_annual_value", pd.Series(dtype=float)), errors="coerce").fillna(0)
+        annual_value = contracts.assign(_annual_value=annual_values).drop_duplicates("contract_id")["_annual_value"].sum() if "contract_id" in contracts else annual_values.sum()
         metric_row([
-            ("Contracts", f"{len(contracts):,}", "Property and meter links"),
-            ("Active Contracts", f"{int(active.sum()):,}", "Based on contract status"),
-            ("Expiring in 90 Days", f"{int(expiring.sum()):,}", "Days remaining 0–90"),
-            ("Estimated Annual Value", fmt_usd(annual_value), "Contract portfolio"),
+            ("Contracts", f"{contract_count:,}", "Distinct contracts"),
+            ("Active Contracts", f"{active_count:,}", "Distinct active contracts"),
+            ("Expiring in 90 Days", f"{expiring_count:,}", "Distinct contracts with 0–90 days remaining"),
+            ("Estimated Annual Value", fmt_usd(annual_value), "Distinct contract values"),
         ])
         contract_view = contracts.copy()
         contract_view["days_remaining"] = pd.to_numeric(contract_view["days_remaining"], errors="coerce")
