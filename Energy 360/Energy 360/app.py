@@ -762,6 +762,45 @@ header[data-testid="stHeader"],
     opacity: 1 !important;
 }
 
+
+/* Keep the entire hero heading and subtitle on the solid-blue side. */
+.hero-banner {
+    position: relative !important;
+}
+.hero-banner:after {
+    left: 62% !important;
+    right: 0 !important;
+    width: auto !important;
+    background-position: center center !important;
+}
+.hero-content {
+    position: relative !important;
+    z-index: 2 !important;
+    width: 60% !important;
+    max-width: 60% !important;
+    flex: 0 0 60% !important;
+}
+.hero-title,
+.hero-subtitle {
+    display: block !important;
+    max-width: 100% !important;
+    overflow-wrap: anywhere !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.hero-subtitle {
+    color: #E1EDF5 !important;
+    white-space: normal !important;
+}
+@media (max-width: 900px) {
+    .hero-banner:after { left: 68% !important; }
+    .hero-content { width: 65% !important; max-width: 65% !important; flex-basis: 65% !important; }
+}
+@media (max-width: 600px) {
+    .hero-banner:after { left: 72% !important; }
+    .hero-content { width: 68% !important; max-width: 68% !important; flex-basis: 68% !important; }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
