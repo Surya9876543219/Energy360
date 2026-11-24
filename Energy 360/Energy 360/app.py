@@ -240,6 +240,41 @@ div[data-testid="stMetric"] { padding: 12px 14px !important; }
     h2, .stSubheader, [data-testid="stSubheader"] { font-size: 1.08rem !important; }
 }
 
+
+/* Keep the complete hero heading and subtitle inside the solid blue area. */
+.hero-banner:after {
+    left: 58% !important;
+    right: 0 !important;
+    width: auto !important;
+}
+.hero-content {
+    max-width: 56% !important;
+    flex: 0 0 56% !important;
+    position: relative !important;
+    z-index: 2 !important;
+}
+.hero-subtitle {
+    display: block !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    color: #E1EDF5 !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin-top: 7px !important;
+    overflow-wrap: anywhere !important;
+}
+@media (max-width: 900px) {
+    .hero-banner:after { left: 68% !important; right: 0 !important; width: auto !important; }
+    .hero-content { max-width: 65% !important; flex-basis: 65% !important; }
+}
+@media (max-width: 600px) {
+    .hero-banner:after { left: 72% !important; opacity: 0.45 !important; }
+    .hero-content { max-width: 70% !important; flex-basis: 70% !important; }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
