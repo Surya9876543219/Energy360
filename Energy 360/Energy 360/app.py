@@ -1,5 +1,6 @@
 import os
 import html
+import json
 from urllib.parse import urlencode
 import pandas as pd
 import numpy as np
@@ -127,6 +128,21 @@ div[data-testid="stMetric"]{background:#FFFFFF;border:1px solid #DCE6EF;padding:
 .chart-title{font-size:1.12rem;color:#183B59;font-weight:800;padding-bottom:10px;border-bottom:1px solid #E3EBF2;margin-bottom:8px}
 h1,h2,h3{color:#183B59;letter-spacing:-.35px}
 div[data-testid="stDataFrame"]{border:1px solid #E5EDF4;border-radius:10px}
+
+/* Floating Energy 360 AI launcher stays visible while the page scrolls. */
+div[class*="st-key-energy360_ai_launcher"] {
+    position: fixed !important; right: 24px !important; bottom: 22px !important;
+    width: auto !important; z-index: 1000500 !important; margin: 0 !important; padding: 0 !important;
+}
+div[class*="st-key-energy360_ai_launcher"] [data-testid="stPopover"] > button,
+div[class*="st-key-energy360_ai_launcher"] button {
+    background: linear-gradient(135deg,#08AFC2,#087EA5) !important;
+    color: #FFFFFF !important; border: 1px solid rgba(255,255,255,.65) !important;
+    border-radius: 999px !important; min-height: 48px !important;
+    padding: .55rem 1rem !important; box-shadow: 0 6px 22px rgba(5,43,70,.28) !important;
+    font-weight: 750 !important;
+}
+
 @media(max-width:1050px){.metric-value{font-size:1.08rem}.hero-title{font-size:1.6rem}.hero-banner:after{width:42%}}
 
 /* Property chart section labels are bold; chart-internal titles remain regular. */
@@ -3248,6 +3264,260 @@ def render_property_energy_management():
         render_crud_entity("vendor_payments", "Vendor Payments", selected_id)
 
 
+
+# ------------------------- Global Energy 360 AI Assistant -------------------------
+AI_PAGE_MAP = {
+    "Executive Dashboard": "Executive Dashboard",
+    "Property Energy Management": "Property Energy Management",
+    "Energy Compliance": "Energy Compliance",
+    "Budgets / Savings": "Budgets / Savings",
+    "Contract Portfolio": "Contract Portfolio",
+    "Energy Generation": "Energy Generation",
+    "Transmission & Distribution": "Transmission & Distribution",
+    "Energy Consumption": "Energy Consumption",
+    "Asset Management": "Asset Management",
+    "Forecasting & Analytics": "Forecasting & Analytics",
+    "Sustainability": "Sustainability",
+    "Energy Cost & Trading": "Energy Cost & Trading",
+    "Geographical Analysis": "Geographical Analysis",
+    "Reports & Insights": "Reports & Insights",
+}
+
+
+def _ai_frame_snapshot(frame, limit=8):
+    """Keep model context compact and grounded in rows returned by SQL."""
+    if frame is None:
+        return {"row_count": 0, "columns": [], "sample": []}
+    if not isinstance(frame, pd.DataFrame):
+        return {"value": str(frame)[:1000]}
+    if frame.empty:
+        return {"row_count": 0, "columns": list(frame.columns), "sample": []}
+    sample = json.loads(frame.head(limit).to_json(orient="records", date_format="iso"))
+    return {"row_count": int(len(frame)), "columns": list(frame.columns), "sample": sample}
+
+
+def _ai_safe_load(context, label, loader):
+    try:
+        context[label] = _ai_frame_snapshot(loader())
+    except Exception as exc:
+        context[label] = {"unavailable": str(exc)[:300]}
+
+
+def _build_ai_page_context(page, start_d=None, end_d=None, state="All US"):
+    """Fetch only the data relevant to the page the user is viewing."""
+    context = {"current_page": page, "business_date": str(pd.Timestamp.now(tz="Asia/Kolkata").date())}
+    try:
+        properties = get_property_list()
+        context["property_master"] = _ai_frame_snapshot(properties, limit=12)
+    except Exception as exc:
+        properties = pd.DataFrame()
+        context["property_master"] = {"unavailable": str(exc)[:300]}
+
+    selected_property = st.session_state.get("selected_energy_property")
+    context["selected_property_id"] = selected_property
+    if selected_property and not properties.empty:
+        selected = properties[properties["property_id"].astype(str) == str(selected_property)]
+        if not selected.empty:
+            context["selected_property"] = json.loads(selected.head(1).to_json(orient="records", date_format="iso"))[0]
+
+    if page == "Executive Dashboard":
+        energy_parts = []
+        for pid in (properties["property_id"].astype(str).tolist() if not properties.empty else []):
+            try:
+                part = get_property_energy(pid)
+                if part is not None and not part.empty:
+                    part = part.copy()
+                    part["property_id"] = pid
+                    energy_parts.append(part)
+            except Exception:
+                continue
+        context["property_energy_usage_all"] = _ai_frame_snapshot(
+            pd.concat(energy_parts, ignore_index=True) if energy_parts else pd.DataFrame(), limit=16
+        )
+        _ai_safe_load(context, "budgets_all_properties", lambda: data_client().property_budget_portfolio_data())
+        _ai_safe_load(context, "savings_all_properties", lambda: data_client().property_savings_portfolio_data())
+        _ai_safe_load(context, "contracts_all_properties", get_all_contracts)
+        obligations, reports = [], []
+        for pid in (properties["property_id"].astype(str).tolist() if not properties.empty else []):
+            try:
+                ob = data_client().property_compliance_obligations(pid)
+                rp = data_client().property_compliance_reports(pid)
+                if ob is not None and not ob.empty:
+                    ob = ob.copy()
+                    ob["property_id"] = pid
+                    obligations.append(ob)
+                if rp is not None and not rp.empty:
+                    rp = rp.copy()
+                    rp["property_id"] = pid
+                    reports.append(rp)
+            except Exception:
+                continue
+        context["compliance_obligations_all_properties"] = _ai_frame_snapshot(
+            pd.concat(obligations, ignore_index=True) if obligations else pd.DataFrame(), limit=12
+        )
+        context["compliance_reports_all_properties"] = _ai_frame_snapshot(
+            pd.concat(reports, ignore_index=True) if reports else pd.DataFrame(), limit=10
+        )
+
+    elif page == "Property Energy Management" and selected_property:
+        for label, loader in [
+            ("property_energy_usage", lambda: get_property_energy(selected_property)),
+            ("meters", lambda: get_property_meters(selected_property)),
+            ("utility_accounts", lambda: get_property_accounts(selected_property)),
+            ("vendors", lambda: get_property_vendors(selected_property)),
+            ("rates", lambda: get_property_rates(selected_property)),
+            ("property_contracts", lambda: get_property_contracts(selected_property)),
+            ("meter_contracts", lambda: get_property_meter_contracts(selected_property)),
+            ("utility_bills", lambda: get_property_bills(selected_property)),
+            ("procurement", lambda: get_property_procurement(selected_property)),
+        ]:
+            _ai_safe_load(context, label, loader)
+
+    elif page == "Energy Compliance" and selected_property:
+        _ai_safe_load(context, "property_energy_usage", lambda: get_property_energy(selected_property))
+        _ai_safe_load(context, "compliance_obligations", lambda: data_client().property_compliance_obligations(selected_property))
+        _ai_safe_load(context, "compliance_reports", lambda: data_client().property_compliance_reports(selected_property))
+
+    elif page == "Budgets / Savings" and selected_property:
+        _ai_safe_load(context, "property_energy_usage", lambda: get_property_energy(selected_property))
+        try:
+            budgets = data_client().property_budget_portfolio_data()
+            savings = data_client().property_savings_portfolio_data()
+            if not budgets.empty:
+                budgets = budgets[budgets["property_id"].astype(str) == str(selected_property)]
+            if not savings.empty:
+                savings = savings[savings["property_id"].astype(str) == str(selected_property)]
+            context["property_budgets"] = _ai_frame_snapshot(budgets)
+            context["property_savings_initiatives"] = _ai_frame_snapshot(savings)
+        except Exception as exc:
+            context["budget_savings_unavailable"] = str(exc)[:300]
+
+    elif page == "Contract Portfolio":
+        _ai_safe_load(context, "contract_register", get_all_contracts)
+
+    else:
+        try:
+            if start_d is None or end_d is None:
+                start_d, end_d = date_bounds()
+            if start_d is not None and end_d is not None:
+                dashboard = get_dashboard_data(start_d, end_d, state)
+                page_keys = {
+                    "Energy Generation": ["generation", "by_source", "by_state"],
+                    "Transmission & Distribution": ["grid", "grid_by_state"],
+                    "Energy Consumption": ["consumption", "trend"],
+                    "Asset Management": ["capacity"],
+                    "Forecasting & Analytics": ["trend", "generation", "consumption"],
+                    "Sustainability": ["emissions", "generation"],
+                    "Energy Cost & Trading": ["costs"],
+                    "Geographical Analysis": ["by_state", "grid_by_state"],
+                    "Reports & Insights": ["generation", "consumption", "grid", "emissions", "costs"],
+                }
+                for key in page_keys.get(page, ["trend"]):
+                    context[key] = _ai_frame_snapshot(dashboard.get(key), limit=10)
+                context["reporting_period"] = {"start_date": str(start_d), "end_date": str(end_d), "state": state}
+        except Exception as exc:
+            context["operational_data_unavailable"] = str(exc)[:300]
+    return context
+
+
+def _ask_energy360_ai(page, question, history, start_d=None, end_d=None, state="All US"):
+    """Call a Databricks Model Serving chat endpoint with the app workspace identity."""
+    endpoint = (
+        os.getenv("ENERGY360_AI_ENDPOINT")
+        or os.getenv("DATABRICKS_CHAT_ENDPOINT")
+        or os.getenv("DATABRICKS_AI_ENDPOINT")
+    )
+    if not endpoint:
+        raise RuntimeError(
+            "AI model endpoint is not configured. Add ENERGY360_AI_ENDPOINT to the Databricks App environment "
+            "using the name of an enabled Databricks Model Serving chat endpoint."
+        )
+    from databricks.sdk import WorkspaceClient
+    context = _build_ai_page_context(page, start_d, end_d, state)
+    allowed_pages = list(AI_PAGE_MAP.keys())
+    system_message = (
+        "You are Energy 360 AI Assistant for an enterprise property energy application. "
+        "Use only the supplied page context for factual figures, statuses, dates and recommendations. "
+        "Never invent missing energy measurements, compliance outcomes, contract values, budgets, savings or deadlines. "
+        "Say clearly when records are missing. A sample contains only a subset of rows; distinguish it from total row_count. "
+        "Answer questions about the current page directly. If the question clearly belongs to a different app page, "
+        "do not answer using unrelated data: set route_to to that exact page and briefly explain why. "
+        "If unrelated to all pages, set route_to null and explain the supported Energy 360 topics. "
+        "Return ONLY valid JSON with keys answer (string) and route_to (string or null). "
+        "Allowed route_to values: " + ", ".join(allowed_pages) + ". "
+        "Current page: " + page + ". Current page context JSON: " + json.dumps(context, default=str)[:18000]
+    )
+    messages = [{"role": "system", "content": system_message}]
+    for item in history[-8:]:
+        if item.get("role") in ("user", "assistant"):
+            messages.append({"role": item["role"], "content": item.get("content", "")[:2500]})
+    messages.append({"role": "user", "content": question[:2500]})
+    response = WorkspaceClient().serving_endpoints.query(
+        name=endpoint, messages=messages, max_tokens=900, temperature=0.15
+    )
+    payload = response.as_dict() if hasattr(response, "as_dict") else response
+    if not isinstance(payload, dict):
+        raise RuntimeError("The model endpoint returned an unsupported response format.")
+    choices = payload.get("choices") or []
+    if not choices:
+        raise RuntimeError("The configured endpoint returned no chat response. Confirm it is a chat-completion endpoint.")
+    message = choices[0].get("message", {}) if isinstance(choices[0], dict) else {}
+    content = message.get("content", "") if isinstance(message, dict) else ""
+    if isinstance(content, list):
+        content = " ".join(str(part.get("text", "")) if isinstance(part, dict) else str(part) for part in content)
+    raw = str(content).strip()
+    fence = chr(96) * 3
+    if raw.startswith(fence):
+        raw = raw.split("\n", 1)[-1].rsplit(fence, 1)[0].strip()
+    try:
+        result = json.loads(raw)
+    except Exception:
+        result = {"answer": raw, "route_to": None}
+    route = result.get("route_to")
+    if route not in AI_PAGE_MAP:
+        route = None
+    return {"answer": str(result.get("answer", "I couldn't answer from the available records.")), "route_to": route}
+
+
+def render_energy360_ai_assistant(page, start_d=None, end_d=None, state="All US"):
+    """Render the same floating AI assistant on every app page."""
+    if "energy360_ai_messages" not in st.session_state:
+        st.session_state["energy360_ai_messages"] = []
+    with st.container(key="energy360_ai_launcher"):
+        with st.popover("AI Assistant", icon=":material/smart_toy:", help="Ask questions about Energy 360"):
+            st.markdown("#### Energy 360 AI Assistant")
+            st.caption(f"Currently viewing: {page}")
+            visible_messages = st.session_state["energy360_ai_messages"][-12:]
+            for idx, item in enumerate(visible_messages):
+                with st.chat_message(item.get("role", "assistant")):
+                    st.markdown(item.get("content", ""))
+                    if item.get("role") == "assistant" and item.get("route_to"):
+                        target = item["route_to"]
+                        st.button(
+                            f"Open {target}",
+                            key=f"energy360_ai_route_{idx}_{target}",
+                            on_click=_choose_page,
+                            args=(target,),
+                            use_container_width=True,
+                        )
+            with st.form("energy360_ai_chat_form", clear_on_submit=True):
+                question = st.text_input("Ask a question", placeholder="e.g. Which property has the highest energy cost?")
+                submitted = st.form_submit_button("Send", use_container_width=True)
+            if submitted and question.strip():
+                history = st.session_state["energy360_ai_messages"][-8:]
+                st.session_state["energy360_ai_messages"].append({"role": "user", "content": question.strip()})
+                try:
+                    result = _ask_energy360_ai(page, question.strip(), history, start_d, end_d, state)
+                    st.session_state["energy360_ai_messages"].append({
+                        "role": "assistant", "content": result["answer"], "route_to": result["route_to"]
+                    })
+                except Exception as exc:
+                    st.session_state["energy360_ai_messages"].append({
+                        "role": "assistant", "content": "I couldn't reach the AI service. " + str(exc)
+                    })
+                st.rerun()
+
+
 # ------------------------- App entry -------------------------
 try:
     # Restore the Property Operations context when a row action link is opened.
@@ -3293,6 +3563,7 @@ try:
     elif page=="Energy Cost & Trading": render_costs(start_d,end_d,state)
     elif page=="Geographical Analysis": render_geography(start_d,end_d)
     elif page=="Reports & Insights": render_reports(start_d,end_d,state)
+    render_energy360_ai_assistant(page, start_d, end_d, state)
 except DataAccessError as e:
     st.error("Could not connect to your Energy 360 data.")
     st.code(str(e))
