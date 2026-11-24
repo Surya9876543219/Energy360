@@ -1056,13 +1056,13 @@ def render_crud_entity(entity, title, property_id):
     }
     [class*="st-key-crud-grid-"] [data-testid="stHorizontalBlock"] [data-testid="column"]:nth-last-child(2),
     [class*="st-key-crud-grid-"] [data-testid="stHorizontalBlock"] [data-testid="column"]:last-child {
-        flex: 0 0 88px !important;
-        min-width: 88px !important;
-        width: 88px !important;
+        flex: 0 0 112px !important;
+        min-width: 112px !important;
+        width: 112px !important;
     }
     [class*="st-key-crud-grid-"] [data-testid="stButton"] button {
-        min-width: 80px !important;
-        width: 100% !important;
+        min-width: 104px !important;
+        width: 104px !important;
         white-space: nowrap !important;
     }
     </style>
@@ -1071,15 +1071,11 @@ def render_crud_entity(entity, title, property_id):
         # Show every available field in the record grid, followed by row actions.
         # The full-width grid preserves the original table-like presentation.
         visible = list(rows.columns)
-        widths = [2.0] * len(visible) + [0.78, 0.86]
+        widths = [2.0] * len(visible) + [1.05, 1.05]
         header_cells = st.columns(widths, vertical_alignment="center")
         for idx, col_name in enumerate(visible):
             with header_cells[idx]:
                 st.markdown(f"**{col_name.replace('_', ' ').title()}**")
-        with header_cells[-2]:
-            st.markdown("**Edit**")
-        with header_cells[-1]:
-            st.markdown("**Delete**")
         st.divider()
     
         for _, record in rows.iterrows():
