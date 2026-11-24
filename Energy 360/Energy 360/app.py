@@ -801,6 +801,47 @@ header[data-testid="stHeader"],
     .hero-content { width: 68% !important; max-width: 68% !important; flex-basis: 68% !important; }
 }
 
+
+/* Improve contrast and hierarchy for selected-property information. */
+.property-detail-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    margin: 7px 0 5px !important;
+    color: #29445D !important;
+    font-size: 0.88rem !important;
+    font-weight: 500 !important;
+    line-height: 1.55 !important;
+}
+.property-detail-line .property-type {
+    color: #102F4A !important;
+    font-weight: 750 !important;
+}
+.property-meta-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 18px;
+    margin: 3px 0 12px !important;
+    padding: 8px 11px;
+    background: #E8F0F7 !important;
+    border: 1px solid #C9D8E6 !important;
+    border-radius: 7px;
+    color: #29445D !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    line-height: 1.5 !important;
+}
+.property-meta-line span {
+    color: #29445D !important;
+}
+.property-meta-line strong {
+    color: #102F4A !important;
+    font-weight: 750 !important;
+    margin-right: 4px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -1910,14 +1951,22 @@ def render_property_energy_management():
     area = prop.get("gross_area_sqft")
     area_text = f"{float(area):,.2f} gross sq. ft." if pd.notna(area) else "Area not provided"
     st.markdown(
-        f"**{prop.get('property_type') or 'Property'}** · "
-        f"{prop.get('address_line_1') or ''} · "
-        f"{prop.get('city') or ''}, {prop.get('state_code') or ''} "
-        f"{prop.get('postal_code') or ''} · {area_text}"
+        f'<div class="property-detail-line">'
+        f'<span class="property-type">{prop.get("property_type") or "Property"}</span>'
+        f'<span>{prop.get("address_line_1") or ""}</span>'
+        f'<span>{prop.get("city") or ""}, {prop.get("state_code") or ""} '
+        f'{prop.get("postal_code") or ""}</span>'
+        f'<span>{area_text}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
     )
-    st.caption(
-        f"Property ID: {selected_id} | Status: {prop.get('operating_status') or 'Not specified'} | "
-        f"Manager: {prop.get('property_manager') or 'Not assigned'}"
+    st.markdown(
+        f'<div class="property-meta-line">'
+        f'<span><strong>Property ID</strong> {selected_id}</span>'
+        f'<span><strong>Status</strong> {prop.get("operating_status") or "Not specified"}</span>'
+        f'<span><strong>Manager</strong> {prop.get("property_manager") or "Not assigned"}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
     )
 
     total_cost = float(energy["cost_amount"].fillna(0).sum()) if not energy.empty else 0.0
