@@ -2318,31 +2318,26 @@ def render_budgets_savings():
         default_id = st.session_state.get("selected_energy_property", property_ids[0])
         if default_id not in property_ids:
             default_id = property_ids[0]
-        selection_options = ["ALL"] + property_ids
+        selection_options = property_ids
         selected_property = st.selectbox(
             "Select property", selection_options,
             index=selection_options.index(default_id),
             format_func=_property_label, key="budget_savings_property_selector"
         )
-        st.session_state["selected_energy_property"] = (
-            property_ids[0] if selected_property == "ALL" else selected_property
+        st.session_state["selected_energy_property"] = selected_property
+        prop = properties.loc[properties["property_id"].astype(str) == selected_property].iloc[0]
+        st.markdown(
+            f'<div class="property-detail-line"><span class="property-type">{html.escape(str(prop.get("property_type") or "Property"))}</span>'
+            f'<span>{html.escape(str(prop.get("address_line_1") or ""))}</span>'
+            f'<span>{html.escape(str(prop.get("city") or ""))}, {html.escape(str(prop.get("state_code") or ""))} '
+            f'{html.escape(str(prop.get("postal_code") or ""))}</span></div>',
+            unsafe_allow_html=True
         )
-        if selected_property != "ALL":
-            prop = properties.loc[properties["property_id"].astype(str) == selected_property].iloc[0]
-            st.markdown(
-                f'<div class="property-detail-line"><span class="property-type">{html.escape(str(prop.get("property_type") or "Property"))}</span>'
-                f'<span>{html.escape(str(prop.get("address_line_1") or ""))}</span>'
-                f'<span>{html.escape(str(prop.get("city") or ""))}, {html.escape(str(prop.get("state_code") or ""))} '
-                f'{html.escape(str(prop.get("postal_code") or ""))}</span></div>',
-                unsafe_allow_html=True
-            )
-        else:
-            st.caption(f"Portfolio view · {len(property_ids)} properties")
 
         budgets_all = data_client().property_budget_portfolio_data()
         savings_all = data_client().property_savings_portfolio_data()
         actual_frames = []
-        for pid in property_ids if selected_property == "ALL" else [selected_property]:
+        for pid in [selected_property]:
             actual_frame = get_property_energy(pid)
             if actual_frame is not None and not actual_frame.empty:
                 actual_frame = actual_frame.copy()
@@ -2360,7 +2355,7 @@ def render_budgets_savings():
         "Budgets / Savings", ["Budgets", "Savings"], horizontal=True,
         key="budget_savings_view"
     )
-    property_filter_ids = property_ids if selected_property == "ALL" else [selected_property]
+    property_filter_ids = [selected_property]
 
     if view == "Budgets":
         st.subheader("Budget vs Actual Energy Cost")
@@ -2442,23 +2437,42 @@ def render_budgets_savings():
         if comparison.empty:
             st.info("No budget records match the selected filters. Add a budget or change the filters.")
         else:
-            chart_data = comparison.groupby("property_name", as_index=False).agg(
-                budget_amount=("budget_amount", "sum"), actual_cost=("actual_cost", "sum")
-            )
-            st.subheader("Property-wise Budget vs Actual")
-            chart_long = chart_data.melt(
-                id_vars="property_name", value_vars=["budget_amount", "actual_cost"],
-                var_name="measure", value_name="amount"
-            )
-            chart_long["measure"] = chart_long["measure"].map({
-                "budget_amount": "Budget", "actual_cost": "Actual Cost"
-            })
-            fig = px.bar(chart_long, x="property_name", y="amount", color="measure",
-                         barmode="group", labels={"property_name":"Property","amount":"Amount (USD)","measure":"Comparison"},
-                         title="Budget vs Actual by Property")
-            fig.update_layout(height=340, paper_bgcolor="white", plot_bgcolor="white",
-                              margin=dict(l=10,r=10,t=50,b=10), legend_title_text="")
-            st.plotly_chart(fig, use_container_width=True, key="budget_property_comparison")
+            st.subheader("Monthly Budget vs Actual Cost")
+            # Allocate budget evenly over the months in its reporting period.
+            monthly_budget_rows = []
+            for _, budget_row in budget_rows.iterrows():
+                start = pd.to_datetime(budget_row.get("period_start_date"), errors="coerce")
+                end = pd.to_datetime(budget_row.get("period_end_date"), errors="coerce")
+                amount = pd.to_numeric(pd.Series([budget_row.get("budget_amount")]), errors="coerce").fillna(0).iloc[0]
+                if pd.isna(start) or pd.isna(end) or end < start:
+                    continue
+                months = pd.date_range(start=start.to_period("M").to_timestamp(),
+                                       end=end.to_period("M").to_timestamp(), freq="MS")
+                if len(months):
+                    monthly_share = float(amount) / len(months)
+                    monthly_budget_rows.extend({"Month": month, "Budget": monthly_share} for month in months)
+            monthly_budget = (pd.DataFrame(monthly_budget_rows).groupby("Month", as_index=False)["Budget"].sum()
+                              if monthly_budget_rows else pd.DataFrame(columns=["Month", "Budget"]))
+            monthly_actual = pd.DataFrame(columns=["Month", "Actual Cost"])
+            if not actual.empty:
+                actual_trend = actual.dropna(subset=["period_start_date"]).copy()
+                if not actual_trend.empty:
+                    actual_trend["Month"] = actual_trend["period_start_date"].dt.to_period("M").dt.to_timestamp()
+                    monthly_actual = actual_trend.groupby("Month", as_index=False)["cost_amount"].sum()
+                    monthly_actual = monthly_actual.rename(columns={"cost_amount": "Actual Cost"})
+            monthly_trend = pd.merge(monthly_budget, monthly_actual, on="Month", how="outer").fillna(0).sort_values("Month")
+            if not monthly_trend.empty:
+                fig = px.line(monthly_trend, x="Month", y=["Budget", "Actual Cost"], markers=True,
+                              labels={"value": "Amount (USD)", "Month": "Month", "variable": "Measure"},
+                              title=f"Monthly Budget vs Actual Cost — {prop.get('property_name', selected_property)}")
+                fig.update_layout(height=370, paper_bgcolor="white", plot_bgcolor="white",
+                                  margin=dict(l=10, r=10, t=55, b=10), legend_title_text="")
+                fig.update_traces(line_width=3, marker_size=7)
+                fig.update_yaxes(title="Amount (USD)", gridcolor="#E7EEF4", tickprefix="$")
+                fig.update_xaxes(title="", tickformat="%b %Y")
+                st.plotly_chart(format_plotly_numbers(fig), use_container_width=True, key="budget_monthly_trend")
+            else:
+                st.info("No monthly budget or actual-cost records are available for this property.")
 
             commodity_rows = []
             for _, row in comparison.iterrows():
@@ -2500,11 +2514,8 @@ def render_budgets_savings():
 
         with st.expander("＋ Add Budget", expanded=False):
             with st.form("add_property_budget_portfolio"):
-                if selected_property == "ALL":
-                    add_property_id = st.selectbox("Property", property_ids, format_func=_property_label)
-                else:
-                    add_property_id = selected_property
-                    st.caption(_property_label(add_property_id))
+                add_property_id = selected_property
+                st.caption(_property_label(add_property_id))
                 left, right = st.columns(2)
                 with left:
                     budget_name = st.text_input("Budget Name")
@@ -2625,11 +2636,8 @@ def render_budgets_savings():
 
         with st.expander("＋ Add Savings Initiative",expanded=False):
             with st.form("add_savings_initiative_portfolio"):
-                if selected_property=="ALL":
-                    add_property_id=st.selectbox("Property",property_ids,format_func=_property_label)
-                else:
-                    add_property_id=selected_property
-                    st.caption(_property_label(add_property_id))
+                add_property_id=selected_property
+                st.caption(_property_label(add_property_id))
                 initiative_name=st.text_input("Initiative Name")
                 category=st.selectbox("Category",["Lighting","HVAC","Controls","Water","Renewables","Operations","Other"])
                 target_savings=st.number_input("Target Savings (USD)",min_value=0.0,value=0.0,step=500.0)
