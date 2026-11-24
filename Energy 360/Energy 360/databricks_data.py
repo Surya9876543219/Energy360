@@ -2,6 +2,7 @@ import os
 import re
 from datetime import date
 import pandas as pd
+import numpy as np
 
 class DataAccessError(RuntimeError):
     pass
@@ -820,7 +821,7 @@ class EnergyData:
             ("fact_purchase_order_line","meter_id"),("dim_meter","parent_meter_id")],
         "dim_utility_account": [("dim_meter","utility_account_id"),("fact_meter_reading","utility_account_id"),
             ("fact_property_energy_usage","utility_account_id"),("fact_energy_bill","utility_account_id")],
-        "dim_vendor": [("bridge_property_commodity_service","utility_vendor_id"),("dim_utility_account","utility_vendor_id"),("dim_rate_class","utility_vendor_id"),
+        "dim_vendor": [("dim_vendor","parent_vendor_id"),("bridge_property_commodity_service","utility_vendor_id"),("dim_utility_account","utility_vendor_id"),("dim_rate_class","utility_vendor_id"),
             ("dim_rate_schedule","utility_vendor_id"),("dim_contract","supplier_vendor_id"),
             ("dim_contract","broker_vendor_id"),("fact_energy_bill","vendor_id"),
             ("fact_purchase_order","vendor_id"),("fact_vendor_invoice","vendor_id"),
@@ -970,6 +971,47 @@ class EnergyData:
                 check = self.query(f"SELECT property_id FROM {self.qschema}.fact_purchase_order WHERE purchase_order_id={self._sql_string(po)}")
                 if not check.empty and pd.notna(check.iloc[0]["property_id"]) and str(check.iloc[0]["property_id"]) != str(values.get("property_id")):
                     raise DataAccessError("Purchase order line property must match its purchase order.")
+        elif table == "bridge_property_contract":
+            prop, contract = values.get("property_id"), values.get("contract_id")
+            end_date = values.get("effective_end_date")
+            if prop and contract:
+                check = self.query(f"SELECT commodity_id FROM {self.qschema}.dim_contract WHERE contract_id={self._sql_string(contract)}")
+                if not check.empty and pd.notna(check.iloc[0]["commodity_id"]) and end_date:
+                    conflict = self.query(f"""
+                        SELECT COUNT(*) AS n
+                        FROM {self.qschema}.bridge_meter_contract mb
+                        JOIN {self.qschema}.dim_meter m ON mb.meter_id=m.meter_id
+                        WHERE mb.property_id={self._sql_string(prop)}
+                          AND m.commodity_id={self._sql_string(check.iloc[0]["commodity_id"])}
+                          AND mb.effective_end_date > CAST({self._sql_string(str(end_date))} AS DATE)
+                    """)
+                    if int(conflict.iloc[0]["n"]) > 0:
+                        raise DataAccessError("Property contract end date cannot be earlier than a linked meter contract end date. Update the meter contract first.")
+        elif table == "fact_energy_bill_line":
+            bill, meter = values.get("energy_bill_id"), values.get("meter_id")
+            if bill:
+                check = self.query(f"SELECT property_id FROM {self.qschema}.fact_energy_bill WHERE energy_bill_id={self._sql_string(bill)}")
+                if not check.empty and str(check.iloc[0]["property_id"]) != str(values.get("property_id")):
+                    raise DataAccessError("Bill line property must match its bill header.")
+            if meter:
+                check = self.query(f"SELECT property_id,commodity_id FROM {self.qschema}.dim_meter WHERE meter_id={self._sql_string(meter)}")
+                if not check.empty:
+                    if str(check.iloc[0]["property_id"]) != str(values.get("property_id")):
+                        raise DataAccessError("Bill line meter must belong to the selected property.")
+                    if values.get("commodity_id") and str(check.iloc[0]["commodity_id"]) != str(values.get("commodity_id")):
+                        raise DataAccessError("Bill line commodity must match the selected meter.")
+        elif table == "fact_vendor_invoice_line":
+            invoice, po_line = values.get("vendor_invoice_id"), values.get("purchase_order_line_id")
+            if invoice and po_line:
+                check = self.query(f"""
+                    SELECT vi.purchase_order_id,pol.purchase_order_id AS line_po
+                    FROM {self.qschema}.fact_vendor_invoice vi
+                    CROSS JOIN {self.qschema}.fact_purchase_order_line pol
+                    WHERE vi.vendor_invoice_id={self._sql_string(invoice)}
+                      AND pol.purchase_order_line_id={self._sql_string(po_line)}
+                """)
+                if not check.empty and pd.notna(check.iloc[0]["purchase_order_id"]) and str(check.iloc[0]["purchase_order_id"]) != str(check.iloc[0]["line_po"]):
+                    raise DataAccessError("Invoice line must belong to the purchase order linked to the selected invoice.")
         elif table == "fact_vendor_invoice":
             po = values.get("purchase_order_id")
             if po:
