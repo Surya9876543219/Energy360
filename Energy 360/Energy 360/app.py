@@ -1113,7 +1113,7 @@ def render_crud_entity(entity, title, property_id):
         for idx, col_name in enumerate(visible):
             with header[idx]:
                 st.markdown(
-                    f'<div style="width:{data_width-20}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:650;">{html.escape(col_name.replace("_", " ").title())}</div>',
+                    f'<div style="width:{data_width-20}px;white-space:normal;overflow-wrap:anywhere;line-height:1.25;font-weight:650;">{html.escape(col_name.replace("_", " ").title())}</div>',
                     unsafe_allow_html=True,
                 )
 
@@ -1142,8 +1142,31 @@ def render_crud_entity(entity, title, property_id):
                     st.session_state[f"crud_active_delete_{entity}_{property_id}"] = record_id
                     st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
 
-            # Render the selected record's editor/confirmation immediately below its row.
+            # When an action is selected at the far-right end, reset the horizontal
+            # table viewport to the first column so the inline form is immediately visible.
             active_edit = st.session_state.get(f"crud_active_edit_{entity}_{property_id}")
+            active_delete_for_row = st.session_state.get(f"crud_active_delete_{entity}_{property_id}")
+            if active_edit == record_id or active_delete_for_row == record_id:
+                st.components.v1.html(
+                    f"""
+                    <script>
+                    (() => {{
+                      const selector = ".st-key-{grid_key}";
+                      const reset = () => {{
+                        try {{
+                          const frame = window.parent.document.querySelector(selector);
+                          if (frame) frame.scrollTo({{left: 0, behavior: "instant"}});
+                        }} catch (e) {{}}
+                      }};
+                      reset();
+                      requestAnimationFrame(reset);
+                      setTimeout(reset, 80);
+                    }})();
+                    </script>
+                    """,
+                    height=0,
+                    scrolling=False,
+                )
             if active_edit == record_id:
                 with st.container(border=True):
                     st.markdown(f"**Edit {title.rstrip('s')} — {record_id}**")
