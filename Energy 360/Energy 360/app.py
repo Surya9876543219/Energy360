@@ -275,6 +275,20 @@ div[data-testid="stMetric"] { padding: 12px 14px !important; }
     .hero-content { max-width: 70% !important; flex-basis: 70% !important; }
 }
 
+
+/* Hide export controls throughout the app, including page-specific CSV actions. */
+[data-testid="stDownloadButton"],
+.stDownloadButton,
+div[data-testid="stDownloadButton"] {
+    display: none !important;
+}
+/* Remove the Streamlit status/rendering badge from the top chrome. */
+[data-testid="stStatusWidget"],
+[data-testid="stToolbar"] [data-testid="stStatusWidget"],
+.stStatusWidget {
+    display: none !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -467,8 +481,6 @@ def filters():
                     on_click=_choose_page,
                     args=(page_name,),
                 )
-        st.caption(f"Catalog: {CATALOG}")
-        st.caption(f"Schema: {SCHEMA}")
     return st.session_state["active_energy_page"]
 
 def render_utility_bar():
