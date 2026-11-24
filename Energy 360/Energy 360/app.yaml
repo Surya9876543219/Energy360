@@ -16,3 +16,5 @@ env:
     value: "energy"
   - name: DATABRICKS_WAREHOUSE_ID
     valueFrom: sql-warehouse
+  - name: ENERGY360_AI_ENDPOINT
+    valueFrom: model
