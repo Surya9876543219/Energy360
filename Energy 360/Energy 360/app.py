@@ -1088,8 +1088,8 @@ def render_crud_entity(entity, title, property_id):
         display:block !important; width:100% !important;
       }}
       .st-key-{grid_key} [data-testid="stMarkdown"],
-      .st-key-{grid_key} [data-testid="stMarkdownContainer"] {{ margin:0 !important; padding:0 !important; }}
-      .st-key-{grid_key} [data-testid="stMarkdownContainer"] p {{
+      .st-key-{grid_key} [data-testid="stMarkdownContainer"] {{ margin:0 !important; padding:0 !important; text-align:left !important; width:100% !important; }}
+      .st-key-{grid_key} [data-testid="stMarkdownContainer"] p {{ text-align:left !important;
         margin:0 !important; white-space:nowrap !important;
         overflow:hidden !important; text-overflow:ellipsis !important;
         font-size:13px !important;
@@ -1110,7 +1110,7 @@ def render_crud_entity(entity, title, property_id):
         for idx, col_name in enumerate(visible):
             with header[idx]:
                 st.markdown(
-                    f'<div style="box-sizing:border-box;width:{data_width-20}px;min-height:42px;white-space:normal;overflow-wrap:anywhere;line-height:1.2;font-weight:650;">{html.escape(col_name.replace("_", " ").title())}</div>',
+                    f'<div style="box-sizing:border-box;display:block;width:{data_width-20}px;min-height:42px;margin:0;padding:0;text-align:left;white-space:normal;overflow-wrap:anywhere;line-height:1.2;font-weight:650;">{html.escape("".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split()))}</div>',
                     unsafe_allow_html=True,
                 )
         with header[-2]:
@@ -1131,7 +1131,7 @@ def render_crud_entity(entity, title, property_id):
                     display_value = str(raw_value)
                 with cells[idx]:
                     st.markdown(
-                        f'<div style="box-sizing:border-box;width:{data_width-20}px;min-width:{data_width-20}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
+                        f'<div style="box-sizing:border-box;display:block;width:{data_width-20}px;min-width:{data_width-20}px;margin:0;padding:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
                         unsafe_allow_html=True,
                     )
             with cells[-2]:
