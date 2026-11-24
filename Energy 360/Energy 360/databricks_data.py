@@ -955,6 +955,32 @@ class EnergyData:
                         raise DataAccessError("Utility account property and commodity must match its property service.")
                     if pd.notna(row["utility_vendor_id"]) and str(row["utility_vendor_id"]) != str(vendor):
                         raise DataAccessError("Utility account vendor must match the selected property service.")
+        elif table == "dim_rate_schedule":
+            rate_class, commodity, vendor = values.get("rate_class_id"), values.get("commodity_id"), values.get("utility_vendor_id")
+            if rate_class:
+                check = self.query(f"SELECT commodity_id,utility_vendor_id FROM {self.qschema}.dim_rate_class WHERE rate_class_id={self._sql_string(rate_class)}")
+                if not check.empty:
+                    row = check.iloc[0]
+                    if pd.notna(row["commodity_id"]) and str(row["commodity_id"]) != str(commodity):
+                        raise DataAccessError("Rate schedule commodity must match its rate class.")
+                    if pd.notna(row["utility_vendor_id"]) and str(row["utility_vendor_id"]) != str(vendor):
+                        raise DataAccessError("Rate schedule utility vendor must match its rate class.")
+        elif table == "dim_utility_account":
+            rate_class = values.get("rate_class_id")
+            if rate_class:
+                check = self.query(f"SELECT commodity_id,utility_vendor_id FROM {self.qschema}.dim_rate_class WHERE rate_class_id={self._sql_string(rate_class)}")
+                if not check.empty:
+                    row = check.iloc[0]
+                    if pd.notna(row["commodity_id"]) and str(row["commodity_id"]) != str(values.get("commodity_id")):
+                        raise DataAccessError("Utility account commodity must match its rate class.")
+                    if pd.notna(row["utility_vendor_id"]) and str(row["utility_vendor_id"]) != str(values.get("utility_vendor_id")):
+                        raise DataAccessError("Utility account vendor must match its rate class.")
+        elif table == "fact_purchase_order":
+            contract, vendor = values.get("contract_id"), values.get("vendor_id")
+            if contract:
+                check = self.query(f"SELECT supplier_vendor_id FROM {self.qschema}.dim_contract WHERE contract_id={self._sql_string(contract)}")
+                if not check.empty and str(check.iloc[0]["supplier_vendor_id"]) != str(vendor):
+                    raise DataAccessError("Purchase order vendor must match the selected contract supplier.")
         elif table == "fact_energy_bill":
             account = values.get("utility_account_id")
             if account:
