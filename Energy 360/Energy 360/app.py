@@ -1679,8 +1679,8 @@ def render_dashboard(start_d, end_d, state):
     active_property_count = len(selected_ids)
 
     cards = [
-        ("Energy Consumption", f"{energy_usage:,.0f} kWh", "Non-water energy usage"),
-        ("Water Usage", f"{water_usage:,.0f}", "Recorded water volume"),
+        ("Energy Consumption", energy_usage_display, "Non-water energy usage, shown by native commodity unit"),
+        ("Water Usage", water_usage_display, "Recorded water volume, shown by native unit"),
         ("Energy Cost", fmt_usd(energy_cost), "From property energy records"),
         ("Carbon Emissions", f"{emissions_tonnes:,.2f} tCO₂e", "Converted from kg CO₂e"),
         ("Realized Savings", fmt_usd(realized_savings), f"Target: {fmt_usd(target_savings)}"),
