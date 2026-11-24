@@ -94,7 +94,7 @@ html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 [data-testid="stSidebar"]{background:linear-gradient(180deg,#031D36 0%,#0B2D4B 55%,#123C5D 100%);border-right:1px solid #D7E2EC}
 [data-testid="stSidebar"]>div{padding-top:1rem}
 [data-testid="stSidebar"] *{color:#F4F8FC}
-.sidebar-brand{padding:8px 0 20px;border-bottom:0!important;margin-bottom:18px}
+.sidebar-brand{padding:2px 0 14px!important;border-bottom:0!important;margin-top:0!important;margin-bottom:12px!important}
 .sidebar-brand-name{font-size:1.48rem;font-weight:850;letter-spacing:-.7px;color:#FFFFFF}
 .sidebar-brand-name span{color:#22C5D5}
 .sidebar-brand-sub{font-size:.78rem;color:#C4D3E0;margin-top:4px}
@@ -387,7 +387,7 @@ section[data-testid="stMain"] {
     top: 0 !important;
 }
 [data-testid="stSidebar"] > div {
-    padding-top: 3.25rem !important;
+    padding-top: 0.45rem !important;
 }
 .block-container,
 [data-testid="stMainBlockContainer"],
@@ -1769,28 +1769,59 @@ def render_dashboard(start_d, end_d, state):
         compliant_count = int(compliant_mask.sum())
         noncompliant_count = int(noncompliant_mask.sum())
         other_count = max(len(status) - compliant_count - noncompliant_count, 0)
-        compliance_summary = pd.DataFrame({"Status":["Compliant","Non-Compliant / Overdue","Other / Pending"],
-                                           "Obligations":[compliant_count,noncompliant_count,other_count]})
-        cc1, cc2 = st.columns([1,1.5])
-        with cc1:
-            metric_row([("Total Obligations", f"{len(obligations):,}", None),
-                        ("Non-Compliant / Overdue", f"{noncompliant_count:,}", None)])
-        with cc2:
-            fig = px.bar(compliance_summary, x="Status", y="Obligations", color="Status",
-                         color_discrete_map={"Compliant":"#20A46B","Non-Compliant / Overdue":"#D94B55","Other / Pending":"#D69B25"})
-            fig.update_layout(height=280, margin=dict(l=8,r=8,t=15,b=8), showlegend=False, paper_bgcolor="white", plot_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True, key="exec_compliance_status")
-        due_col = next((c for c in ["next_submission_due_date"] if c in obligations.columns), None)
-        if due_col:
-            due = obligations.copy()
-            due[due_col] = pd.to_datetime(due[due_col], errors="coerce")
-            upcoming = due[due[due_col].between(pd.Timestamp.today().normalize(), pd.Timestamp.today().normalize()+pd.Timedelta(days=90))]
+        compliance_summary = pd.DataFrame({
+            "Status": ["Compliant", "Non-Compliant / Overdue", "Other / Pending"],
+            "Obligations": [compliant_count, noncompliant_count, other_count],
+        })
+
+        # Full-width KPI row avoids leaving a large unused block beside two cards.
+        metric_row([
+            ("Total Obligations", f"{len(obligations):,}", "All configured compliance obligations"),
+            ("Compliant", f"{compliant_count:,}", "Reported compliant or passed"),
+            ("Non-Compliant / Overdue", f"{noncompliant_count:,}", "Reported violations, failures or overdue items"),
+            ("Other / Pending", f"{other_count:,}", "Pending or unreported status"),
+        ])
+
+        compliance_left, compliance_right = st.columns([1.15, 1.85], gap="medium")
+        with compliance_left:
             st.markdown("**Compliance deadlines – next 90 days**")
-            if not upcoming.empty:
-                st.dataframe(upcoming[["property_name","standard_name","compliance_status",due_col]].sort_values(due_col),
-                             use_container_width=True, hide_index=True)
+            due_col = "next_submission_due_date" if "next_submission_due_date" in obligations.columns else None
+            if due_col:
+                due = obligations.copy()
+                due[due_col] = pd.to_datetime(due[due_col], errors="coerce")
+                today = pd.Timestamp.today().normalize()
+                upcoming = due[due[due_col].between(today, today + pd.Timedelta(days=90))].copy()
+                if not upcoming.empty:
+                    display_cols = [c for c in ["property_name", "standard_name", "compliance_status", due_col] if c in upcoming.columns]
+                    upcoming = upcoming[display_cols].sort_values(due_col)
+                    upcoming[due_col] = upcoming[due_col].dt.strftime("%d %b %Y")
+                    st.dataframe(upcoming, use_container_width=True, hide_index=True, height=min(260, 38 + 35 * len(upcoming)))
+                else:
+                    st.info("No compliance deadlines are due in the next 90 days.")
             else:
-                st.caption("No upcoming compliance deadlines are recorded for the next 90 days.")
+                st.info("No submission due dates are configured for these obligations.")
+
+        with compliance_right:
+            st.markdown("**Obligations by status**")
+            fig = px.bar(
+                compliance_summary, x="Obligations", y="Status", orientation="h", color="Status",
+                color_discrete_map={
+                    "Compliant": "#20A46B",
+                    "Non-Compliant / Overdue": "#D94B55",
+                    "Other / Pending": "#D69B25",
+                },
+                text="Obligations",
+            )
+            fig.update_traces(textposition="outside", cliponaxis=False, hovertemplate="%{y}: %{x} obligations<extra></extra>")
+            fig.update_layout(
+                height=260, margin=dict(l=8, r=28, t=4, b=8), showlegend=False,
+                paper_bgcolor="white", plot_bgcolor="white",
+                xaxis_title="Number of obligations", yaxis_title="",
+                bargap=0.42,
+            )
+            fig.update_xaxes(dtick=1, rangemode="tozero", gridcolor="#E7EEF4")
+            fig.update_yaxes(categoryorder="array", categoryarray=["Other / Pending", "Non-Compliant / Overdue", "Compliant"])
+            st.plotly_chart(fig, use_container_width=True, key="exec_compliance_status")
     else:
         st.info("Compliance obligations are not configured for the selected properties. Compliance status is not inferred from energy usage.")
 
@@ -1850,7 +1881,6 @@ def render_dashboard(start_d, end_d, state):
     else:
         st.success("No budget overruns, upcoming contract expirations or near-term compliance deadlines were identified in the selected records.")
 
-    st.caption("Executive metrics are sourced exclusively from Property Energy Management, Energy Compliance, Budgets / Savings and Contract Portfolio. Blank or unconfigured compliance data is not treated as compliant.")
 
 def render_generation(start_d,end_d,state):
     page_heading("Energy Generation","Plant-level output, energy source mix, capacity utilization and target performance.")
