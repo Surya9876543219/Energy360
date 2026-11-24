@@ -2231,6 +2231,17 @@ def render_energy_compliance():
         st.code(str(exc))
         return
 
+    st.subheader("Portfolio Benchmarking — All Properties")
+    try:
+        portfolio = data_client().property_energy_portfolio_data()
+        if not portfolio.empty:
+            st.dataframe(portfolio, use_container_width=True, hide_index=True)
+        else:
+            st.info("No property energy records are available across the portfolio.")
+    except DataAccessError as exc:
+        st.warning("Could not load the portfolio benchmarking summary.")
+        st.caption(str(exc))
+
     st.subheader("Building Performance Overview")
     area = pd.to_numeric(pd.Series([prop.get("gross_area_sqft")]), errors="coerce").iloc[0]
     frame = energy.copy()
@@ -2297,6 +2308,24 @@ def render_budgets_savings():
         st.error("Could not load property energy data.")
         st.code(str(exc))
         return
+
+    st.subheader("Portfolio Overview — All Properties")
+    try:
+        if st.session_state.get(f"budget_savings_view_{property_id}", "Budgets") == "Savings":
+            portfolio_rows = data_client().property_savings_portfolio_data()
+            if not portfolio_rows.empty:
+                st.dataframe(portfolio_rows, use_container_width=True, hide_index=True)
+            else:
+                st.info("No savings initiatives have been entered for any property yet.")
+        else:
+            portfolio_rows = data_client().property_budget_portfolio_data()
+            if not portfolio_rows.empty:
+                st.dataframe(portfolio_rows, use_container_width=True, hide_index=True)
+            else:
+                st.info("No energy budgets have been entered for any property yet.")
+    except DataAccessError as exc:
+        st.warning("Could not load the all-property portfolio records.")
+        st.caption(str(exc))
 
     view = st.radio("Budgets / Savings", ["Budgets", "Savings"], horizontal=True,
                     key=f"budget_savings_view_{property_id}")
