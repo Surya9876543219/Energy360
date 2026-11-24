@@ -2299,86 +2299,220 @@ def render_energy_compliance():
 
 
 def render_budgets_savings():
+    """Budget vs actual and target vs realized savings portfolio dashboard."""
     try:
-        property_id, prop = _property_page_context("budget_savings")
-        if property_id is None:
+        properties = get_property_list()
+        if properties.empty:
+            st.warning("No properties were found in dim_property.")
             return
-        energy = get_property_energy(property_id)
+        property_ids = properties["property_id"].astype(str).tolist()
+
+        def _property_label(pid):
+            if pid == "ALL":
+                return "All Properties"
+            row = properties.loc[properties["property_id"].astype(str) == str(pid)].iloc[0]
+            place = ", ".join(str(v) for v in [row.get("city"), row.get("state_code")]
+                              if pd.notna(v) and str(v).strip())
+            return f"{row.get('property_name', pid)} | {place} | {pid}"
+
+        default_id = st.session_state.get("selected_energy_property", property_ids[0])
+        if default_id not in property_ids:
+            default_id = property_ids[0]
+        selection_options = ["ALL"] + property_ids
+        selected_property = st.selectbox(
+            "Select property", selection_options,
+            index=selection_options.index(default_id),
+            format_func=_property_label, key="budget_savings_property_selector"
+        )
+        st.session_state["selected_energy_property"] = (
+            property_ids[0] if selected_property == "ALL" else selected_property
+        )
+        if selected_property != "ALL":
+            prop = properties.loc[properties["property_id"].astype(str) == selected_property].iloc[0]
+            st.markdown(
+                f'<div class="property-detail-line"><span class="property-type">{html.escape(str(prop.get("property_type") or "Property"))}</span>'
+                f'<span>{html.escape(str(prop.get("address_line_1") or ""))}</span>'
+                f'<span>{html.escape(str(prop.get("city") or ""))}, {html.escape(str(prop.get("state_code") or ""))} '
+                f'{html.escape(str(prop.get("postal_code") or ""))}</span></div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.caption(f"Portfolio view · {len(property_ids)} properties")
+
+        budgets_all = data_client().property_budget_portfolio_data()
+        savings_all = data_client().property_savings_portfolio_data()
+        actual_frames = []
+        for pid in property_ids if selected_property == "ALL" else [selected_property]:
+            actual_frame = get_property_energy(pid)
+            if actual_frame is not None and not actual_frame.empty:
+                actual_frame = actual_frame.copy()
+                actual_frame["property_id"] = pid
+                prop_row = properties.loc[properties["property_id"].astype(str) == pid].iloc[0]
+                actual_frame["property_name"] = prop_row.get("property_name", pid)
+                actual_frames.append(actual_frame)
+        actual_all = pd.concat(actual_frames, ignore_index=True) if actual_frames else pd.DataFrame()
     except DataAccessError as exc:
-        st.error("Could not load property energy data.")
+        st.error("Could not load budget, savings or actual energy data.")
         st.code(str(exc))
         return
 
-    st.subheader("Portfolio Overview — All Properties")
-    try:
-        if st.session_state.get(f"budget_savings_view_{property_id}", "Budgets") == "Savings":
-            portfolio_rows = data_client().property_savings_portfolio_data()
-            if not portfolio_rows.empty:
-                st.dataframe(portfolio_rows, use_container_width=True, hide_index=True)
-            else:
-                st.info("No savings initiatives have been entered for any property yet.")
-        else:
-            portfolio_rows = data_client().property_budget_portfolio_data()
-            if not portfolio_rows.empty:
-                st.dataframe(portfolio_rows, use_container_width=True, hide_index=True)
-            else:
-                st.info("No energy budgets have been entered for any property yet.")
-    except DataAccessError as exc:
-        st.warning("Could not load the all-property portfolio records.")
-        st.caption(str(exc))
+    view = st.radio(
+        "Budgets / Savings", ["Budgets", "Savings"], horizontal=True,
+        key="budget_savings_view"
+    )
+    property_filter_ids = property_ids if selected_property == "ALL" else [selected_property]
 
-    view = st.radio("Budgets / Savings", ["Budgets", "Savings"], horizontal=True,
-                    key=f"budget_savings_view_{property_id}")
     if view == "Budgets":
-        st.subheader("Property Energy Budgets")
-        st.caption("Compare approved budget amounts with actual energy costs recorded for this property.")
-        try:
-            budgets = data_client().property_budget_data(property_id)
-        except DataAccessError as exc:
-            st.warning("Budget tables are not available yet. Run sql/property_compliance_and_budgeting.sql.")
-            st.caption(str(exc))
-            return
-        if budgets.empty:
-            st.info("No budgets have been entered for this property yet. Use Add Budget to create the first approved budget.")
+        st.subheader("Budget vs Actual Energy Cost")
+        st.caption("Compare approved budgets with actual energy expenditure over the same property, commodity and reporting period.")
+
+        budget_rows = budgets_all.copy()
+        if not budget_rows.empty:
+            budget_rows = budget_rows[budget_rows["property_id"].astype(str).isin(property_filter_ids)].copy()
+        if not budget_rows.empty:
+            budget_rows["fiscal_year"] = pd.to_numeric(budget_rows["fiscal_year"], errors="coerce")
+            year_options = sorted(budget_rows["fiscal_year"].dropna().astype(int).unique().tolist())
         else:
-            actual = energy.copy()
-            if not actual.empty:
-                actual["cost_amount"] = pd.to_numeric(actual["cost_amount"], errors="coerce").fillna(0)
-                actual["period_start_date"] = pd.to_datetime(actual["period_start_date"], errors="coerce")
-                actual["period_end_date"] = pd.to_datetime(actual["period_end_date"], errors="coerce")
-            rows = []
-            for _, budget in budgets.iterrows():
-                start = pd.to_datetime(budget["period_start_date"])
-                end = pd.to_datetime(budget["period_end_date"])
-                matched = actual[(actual["period_start_date"] >= start) & (actual["period_end_date"] <= end)] if not actual.empty else actual
-                if pd.notna(budget.get("commodity_id")) and str(budget.get("commodity_id")).strip():
-                    matched = matched[matched["commodity_id"].astype(str) == str(budget["commodity_id"])]
-                actual_cost = float(matched["cost_amount"].sum()) if not matched.empty else 0.0
-                budget_amount = float(budget["budget_amount"] or 0)
-                row = budget.to_dict()
-                row.update({"actual_cost": actual_cost, "remaining_budget": budget_amount-actual_cost,
-                            "variance_pct": ((budget_amount-actual_cost)/budget_amount*100) if budget_amount else None})
-                rows.append(row)
-            comparison = pd.DataFrame(rows)
-            st.dataframe(comparison, use_container_width=True, hide_index=True)
-            total_budget = float(comparison["budget_amount"].fillna(0).sum())
-            total_actual = float(comparison["actual_cost"].fillna(0).sum())
-            metric_row([
-                ("Budget Total", fmt_usd(total_budget), None),
-                ("Actual Cost", fmt_usd(total_actual), None),
-                ("Remaining / (Overrun)", fmt_usd(total_budget-total_actual), None),
-                ("Budget Utilization", f"{total_actual/total_budget*100:,.1f}%" if total_budget else "—", None),
-            ])
+            year_options = []
+        f1, f2, f3 = st.columns(3)
+        with f1:
+            selected_year = st.selectbox("Fiscal Year", ["All"] + year_options, key="budget_fiscal_year")
+        with f2:
+            selected_commodity = st.selectbox(
+                "Commodity", ["All"] + (sorted(actual_all["commodity_name"].dropna().astype(str).unique().tolist())
+                if not actual_all.empty and "commodity_name" in actual_all else []),
+                key="budget_commodity_filter"
+            )
+        with f3:
+            selected_status = st.selectbox(
+                "Budget Status", ["All", "Approved", "Submitted", "Draft", "Rejected"],
+                key="budget_status_filter"
+            )
+
+        if not budget_rows.empty:
+            if selected_year != "All":
+                budget_rows = budget_rows[budget_rows["fiscal_year"] == int(selected_year)]
+            if selected_status != "All":
+                budget_rows = budget_rows[budget_rows["approval_status"].astype(str).str.title() == selected_status]
+        actual = actual_all.copy()
+        if not actual.empty:
+            actual["cost_amount"] = pd.to_numeric(actual["cost_amount"], errors="coerce").fillna(0)
+            actual["period_start_date"] = pd.to_datetime(actual["period_start_date"], errors="coerce")
+            actual["period_end_date"] = pd.to_datetime(actual["period_end_date"], errors="coerce")
+            if selected_commodity != "All":
+                actual = actual[actual["commodity_name"].astype(str) == selected_commodity]
+
+        comparison_rows = []
+        for _, budget in budget_rows.iterrows():
+            start_date = pd.to_datetime(budget.get("period_start_date"), errors="coerce")
+            end_date = pd.to_datetime(budget.get("period_end_date"), errors="coerce")
+            matched = actual[actual["property_id"].astype(str) == str(budget["property_id"])] if not actual.empty else actual
+            if pd.notna(start_date) and pd.notna(end_date) and not matched.empty:
+                matched = matched[(matched["period_start_date"] >= start_date) & (matched["period_end_date"] <= end_date)]
+            if pd.notna(budget.get("commodity_id")) and str(budget.get("commodity_id")).strip():
+                matched = matched[matched["commodity_id"].astype(str) == str(budget["commodity_id"])]
+            elif selected_commodity != "All" and not matched.empty:
+                matched = matched[matched["commodity_name"].astype(str) == selected_commodity]
+            actual_cost = float(matched["cost_amount"].sum()) if not matched.empty else 0.0
+            budget_amount = float(pd.to_numeric(pd.Series([budget.get("budget_amount")]), errors="coerce").fillna(0).iloc[0])
+            row = budget.to_dict()
+            row.update({
+                "actual_cost": actual_cost,
+                "variance_amount": actual_cost - budget_amount,
+                "remaining_budget": budget_amount - actual_cost,
+                "utilization_pct": actual_cost / budget_amount * 100 if budget_amount > 0 else None,
+            })
+            comparison_rows.append(row)
+        comparison = pd.DataFrame(comparison_rows)
+
+        approved = comparison[
+            comparison["approval_status"].astype(str).str.lower().eq("approved")
+        ] if not comparison.empty and "approval_status" in comparison else pd.DataFrame()
+        total_budget = float(pd.to_numeric(approved.get("budget_amount", pd.Series(dtype=float)), errors="coerce").fillna(0).sum())
+        total_actual = float(pd.to_numeric(approved.get("actual_cost", pd.Series(dtype=float)), errors="coerce").fillna(0).sum())
+        remaining = total_budget - total_actual
+        utilization = total_actual / total_budget * 100 if total_budget > 0 else 0
+        metric_row([
+            ("Approved Budget", fmt_usd(total_budget), "Approved budgets only"),
+            ("Actual Cost", fmt_usd(total_actual), "Matched reporting periods"),
+            ("Remaining / (Overrun)", fmt_usd(remaining), "Negative means over budget"),
+            ("Budget Utilization", f"{utilization:,.1f}%", "Actual cost / approved budget"),
+        ])
+
+        if comparison.empty:
+            st.info("No budget records match the selected filters. Add a budget or change the filters.")
+        else:
+            chart_data = comparison.groupby("property_name", as_index=False).agg(
+                budget_amount=("budget_amount", "sum"), actual_cost=("actual_cost", "sum")
+            )
+            st.subheader("Property-wise Budget vs Actual")
+            chart_long = chart_data.melt(
+                id_vars="property_name", value_vars=["budget_amount", "actual_cost"],
+                var_name="measure", value_name="amount"
+            )
+            chart_long["measure"] = chart_long["measure"].map({
+                "budget_amount": "Budget", "actual_cost": "Actual Cost"
+            })
+            fig = px.bar(chart_long, x="property_name", y="amount", color="measure",
+                         barmode="group", labels={"property_name":"Property","amount":"Amount (USD)","measure":"Comparison"},
+                         title="Budget vs Actual by Property")
+            fig.update_layout(height=340, paper_bgcolor="white", plot_bgcolor="white",
+                              margin=dict(l=10,r=10,t=50,b=10), legend_title_text="")
+            st.plotly_chart(fig, use_container_width=True, key="budget_property_comparison")
+
+            commodity_rows = []
+            for _, row in comparison.iterrows():
+                commodity_name = "All Commodities"
+                if pd.notna(row.get("commodity_id")) and str(row.get("commodity_id")).strip():
+                    found = actual_all.loc[actual_all["commodity_id"].astype(str) == str(row["commodity_id"]), "commodity_name"] if not actual_all.empty else pd.Series(dtype=str)
+                    if not found.empty:
+                        commodity_name = str(found.iloc[0])
+                    else:
+                        commodity_name = str(row["commodity_id"])
+                commodity_rows.append({"Commodity":commodity_name,"Budget":float(row["budget_amount"] or 0),"Actual Cost":float(row["actual_cost"] or 0)})
+            commodity_df = pd.DataFrame(commodity_rows)
+            if not commodity_df.empty:
+                commodity_df = commodity_df.groupby("Commodity",as_index=False)[["Budget","Actual Cost"]].sum()
+                st.subheader("Budget vs Actual by Commodity")
+                st.bar_chart(commodity_df.set_index("Commodity"), use_container_width=True)
+
+            display = comparison.copy()
+            display["status"] = display["utilization_pct"].apply(
+                lambda x: "Over Budget" if pd.notna(x) and x > 100 else ("Near Limit" if pd.notna(x) and x >= 90 else "Under Budget")
+            )
+            display = display.rename(columns={
+                "property_name":"Property","budget_name":"Budget Name","fiscal_year":"Fiscal Year",
+                "commodity_id":"Commodity ID","period_start_date":"Period Start Date",
+                "period_end_date":"Period End Date","budget_amount":"Budget Amount",
+                "actual_cost":"Actual Cost","variance_amount":"Variance",
+                "remaining_budget":"Remaining Budget","utilization_pct":"Budget Utilization (%)",
+                "approval_status":"Approval Status","status":"Performance Status"
+            })
+            preferred = ["Property","Budget Name","Fiscal Year","Commodity ID","Period Start Date","Period End Date",
+                         "Budget Amount","Actual Cost","Variance","Remaining Budget","Budget Utilization (%)",
+                         "Approval Status","Performance Status"]
+            display = display[[c for c in preferred if c in display.columns]]
+            st.subheader("Budget Comparison Details")
+            st.dataframe(display, use_container_width=True, hide_index=True)
+            st.download_button("Download Budget Comparison CSV", display.to_csv(index=False).encode("utf-8"),
+                               file_name="energy360_budget_vs_actual.csv", mime="text/csv",
+                               key="download_budget_comparison")
+
         with st.expander("＋ Add Budget", expanded=False):
-            with st.form(f"add_property_budget_{property_id}"):
+            with st.form("add_property_budget_portfolio"):
+                if selected_property == "ALL":
+                    add_property_id = st.selectbox("Property", property_ids, format_func=_property_label)
+                else:
+                    add_property_id = selected_property
+                    st.caption(_property_label(add_property_id))
                 left, right = st.columns(2)
                 with left:
                     budget_name = st.text_input("Budget Name")
                     fiscal_year = st.number_input("Fiscal Year", min_value=2000, max_value=2100, value=2026, step=1)
                     budget_amount = st.number_input("Budget Amount (USD)", min_value=0.0, value=0.0, step=1000.0)
                 with right:
-                    commodities = ["All Commodities"] + sorted(energy["commodity_id"].dropna().astype(str).unique().tolist()) if not energy.empty else ["All Commodities"]
-                    commodity_id = st.selectbox("Commodity", commodities)
+                    commodity_choices = ["All Commodities"] + (sorted(actual_all.loc[actual_all["property_id"].astype(str)==str(add_property_id),"commodity_id"].dropna().astype(str).unique().tolist()) if not actual_all.empty else [])
+                    commodity_id = st.selectbox("Commodity", commodity_choices)
                     period_start = st.date_input("Period Start")
                     period_end = st.date_input("Period End")
                 submitted = st.form_submit_button("Save Budget", type="primary")
@@ -2387,53 +2521,129 @@ def render_budgets_savings():
                         st.error("Enter a budget name, valid period and amount greater than zero.")
                     else:
                         try:
-                            data_client().create_property_budget(property_id, budget_name, int(fiscal_year),
-                                None if commodity_id == "All Commodities" else commodity_id,
-                                period_start, period_end, budget_amount)
+                            data_client().create_property_budget(add_property_id,budget_name,int(fiscal_year),
+                                None if commodity_id=="All Commodities" else commodity_id,
+                                period_start,period_end,budget_amount)
                             st.cache_data.clear()
-                            st.success("Budget saved.")
+                            st.success("Budget saved as Draft. Submit and approve it before it contributes to approved-budget KPIs.")
                             st.rerun()
                         except DataAccessError as exc:
                             st.error(str(exc))
+
     else:
-        st.subheader("Energy Savings Initiatives")
-        st.caption("Track planned and realized savings separately. Realized values should be supported by approved measurement and verification.")
-        try:
-            initiatives = data_client().property_savings_data(property_id)
-        except DataAccessError as exc:
-            st.warning("Savings tables are not available yet. Run sql/property_compliance_and_budgeting.sql.")
-            st.caption(str(exc))
-            return
+        st.subheader("Target Savings vs Realized Savings")
+        st.caption("Compare planned initiative savings with recorded realized savings. Realized values should be supported by measurement and verification.")
+        initiatives = savings_all.copy()
+        if not initiatives.empty:
+            initiatives = initiatives[initiatives["property_id"].astype(str).isin(property_filter_ids)].copy()
+        f1, f2 = st.columns(2)
+        with f1:
+            category_options = ["All"] + (sorted(initiatives["initiative_category"].dropna().astype(str).unique().tolist()) if not initiatives.empty else [])
+            selected_category = st.selectbox("Initiative Category", category_options, key="savings_category_filter")
+        with f2:
+            selected_initiative_status = st.selectbox(
+                "Initiative Status", ["All","Planned","In Progress","Completed","On Hold"],
+                key="savings_status_filter"
+            )
+        if not initiatives.empty:
+            if selected_category != "All":
+                initiatives = initiatives[initiatives["initiative_category"].astype(str) == selected_category]
+            if selected_initiative_status != "All":
+                initiatives = initiatives[initiatives["initiative_status"].astype(str).str.title() == selected_initiative_status]
+            for col in ["target_savings_amount","realized_savings_amount"]:
+                initiatives[col] = pd.to_numeric(initiatives[col],errors="coerce").fillna(0)
+            initiatives["achievement_pct"] = initiatives.apply(
+                lambda row: row["realized_savings_amount"]/row["target_savings_amount"]*100
+                if row["target_savings_amount"]>0 else 0,axis=1
+            )
+        target_total = float(initiatives["target_savings_amount"].sum()) if not initiatives.empty else 0.0
+        realized_total = float(initiatives["realized_savings_amount"].sum()) if not initiatives.empty else 0.0
+        opportunity = target_total-realized_total
+        achievement = realized_total/target_total*100 if target_total>0 else 0
+        metric_row([
+            ("Target Savings",fmt_usd(target_total),"Planned initiative savings"),
+            ("Realized Savings",fmt_usd(realized_total),"Recorded achieved savings"),
+            ("Remaining Opportunity",fmt_usd(opportunity),"Target minus realized"),
+            ("Savings Achievement",f"{achievement:,.1f}%","Realized / target savings"),
+        ])
         if initiatives.empty:
-            st.info("No savings initiatives have been entered for this property yet.")
+            st.info("No savings initiatives match the selected filters.")
         else:
-            initiatives = initiatives.copy()
-            initiatives["progress_pct"] = initiatives.apply(
-                lambda row: (float(row.get("realized_savings_amount") or 0) / float(row.get("target_savings_amount") or 1) * 100)
-                if float(row.get("target_savings_amount") or 0) > 0 else 0, axis=1)
-            st.dataframe(initiatives, use_container_width=True, hide_index=True)
-            metric_row([
-                ("Target Savings", fmt_usd(pd.to_numeric(initiatives["target_savings_amount"], errors="coerce").fillna(0).sum()), None),
-                ("Realized Savings", fmt_usd(pd.to_numeric(initiatives["realized_savings_amount"], errors="coerce").fillna(0).sum()), None),
-                ("Initiatives", f"{len(initiatives):,}", None),
-                ("Completed", f"{int(initiatives['initiative_status'].astype(str).str.lower().eq('completed').sum()):,}", None),
-            ])
-        with st.expander("＋ Add Savings Initiative", expanded=False):
-            with st.form(f"add_savings_initiative_{property_id}"):
-                initiative_name = st.text_input("Initiative Name")
-                category = st.selectbox("Category", ["Lighting", "HVAC", "Controls", "Water", "Renewables", "Operations", "Other"])
-                target_savings = st.number_input("Target Savings (USD)", min_value=0.0, value=0.0, step=500.0)
-                realized_savings = st.number_input("Realized Savings (USD)", min_value=0.0, value=0.0, step=100.0)
-                status = st.selectbox("Status", ["Planned", "In Progress", "Completed", "On Hold"])
-                notes = st.text_area("Notes")
-                submitted = st.form_submit_button("Save Initiative", type="primary")
+            st.subheader("Target vs Realized by Property")
+            by_property = initiatives.groupby("property_name",as_index=False).agg(
+                target_savings=("target_savings_amount","sum"),
+                realized_savings=("realized_savings_amount","sum")
+            )
+            property_long = by_property.melt(id_vars="property_name",
+                value_vars=["target_savings","realized_savings"],var_name="measure",value_name="amount")
+            property_long["measure"] = property_long["measure"].map(
+                {"target_savings":"Target Savings","realized_savings":"Realized Savings"})
+            fig = px.bar(property_long,x="property_name",y="amount",color="measure",barmode="group",
+                labels={"property_name":"Property","amount":"Savings (USD)","measure":"Comparison"},
+                title="Target vs Realized Savings by Property")
+            fig.update_layout(height=340,paper_bgcolor="white",plot_bgcolor="white",
+                margin=dict(l=10,r=10,t=50,b=10),legend_title_text="")
+            st.plotly_chart(fig,use_container_width=True,key="savings_property_comparison")
+
+            st.subheader("Savings by Initiative Category")
+            by_category = initiatives.groupby("initiative_category",as_index=False).agg(
+                target_savings=("target_savings_amount","sum"),
+                realized_savings=("realized_savings_amount","sum"))
+            category_long = by_category.melt(id_vars="initiative_category",
+                value_vars=["target_savings","realized_savings"],var_name="measure",value_name="amount")
+            category_long["measure"] = category_long["measure"].map(
+                {"target_savings":"Target Savings","realized_savings":"Realized Savings"})
+            fig = px.bar(category_long,x="initiative_category",y="amount",color="measure",barmode="group",
+                labels={"initiative_category":"Initiative Category","amount":"Savings (USD)","measure":"Comparison"},
+                title="Target vs Realized Savings by Category")
+            fig.update_layout(height=320,paper_bgcolor="white",plot_bgcolor="white",
+                margin=dict(l=10,r=10,t=50,b=10),legend_title_text="")
+            st.plotly_chart(fig,use_container_width=True,key="savings_category_comparison")
+
+            st.subheader("Initiative Status Distribution")
+            status_counts = initiatives.groupby("initiative_status",as_index=False).size()
+            fig = px.pie(status_counts,names="initiative_status",values="size",hole=0.55,
+                         title="Initiatives by Status")
+            fig.update_layout(height=300,paper_bgcolor="white",margin=dict(l=10,r=10,t=45,b=10))
+            st.plotly_chart(fig,use_container_width=True,key="savings_status_distribution")
+
+            display = initiatives.rename(columns={
+                "property_name":"Property","initiative_id":"Initiative ID","initiative_name":"Initiative Name",
+                "initiative_category":"Category","target_savings_amount":"Target Savings",
+                "realized_savings_amount":"Realized Savings","achievement_pct":"Achievement (%)",
+                "initiative_status":"Status","start_date":"Start Date",
+                "target_completion_date":"Target Completion Date","currency_code":"Currency"
+            })
+            preferred = ["Property","Initiative ID","Initiative Name","Category","Target Savings",
+                         "Realized Savings","Achievement (%)","Currency","Status","Start Date","Target Completion Date"]
+            display = display[[c for c in preferred if c in display.columns]]
+            st.subheader("Savings Initiative Comparison")
+            st.dataframe(display,use_container_width=True,hide_index=True)
+            st.download_button("Download Savings Comparison CSV",display.to_csv(index=False).encode("utf-8"),
+                file_name="energy360_target_vs_realized_savings.csv",mime="text/csv",
+                key="download_savings_comparison")
+
+        with st.expander("＋ Add Savings Initiative",expanded=False):
+            with st.form("add_savings_initiative_portfolio"):
+                if selected_property=="ALL":
+                    add_property_id=st.selectbox("Property",property_ids,format_func=_property_label)
+                else:
+                    add_property_id=selected_property
+                    st.caption(_property_label(add_property_id))
+                initiative_name=st.text_input("Initiative Name")
+                category=st.selectbox("Category",["Lighting","HVAC","Controls","Water","Renewables","Operations","Other"])
+                target_savings=st.number_input("Target Savings (USD)",min_value=0.0,value=0.0,step=500.0)
+                realized_savings=st.number_input("Realized Savings (USD)",min_value=0.0,value=0.0,step=100.0)
+                status=st.selectbox("Status",["Planned","In Progress","Completed","On Hold"])
+                notes=st.text_area("Notes")
+                submitted=st.form_submit_button("Save Initiative",type="primary")
                 if submitted:
-                    if not initiative_name.strip() or target_savings <= 0:
+                    if not initiative_name.strip() or target_savings<=0:
                         st.error("Enter an initiative name and a positive target savings amount.")
                     else:
                         try:
-                            data_client().create_savings_initiative(property_id, initiative_name, category,
-                                target_savings, realized_savings, status, notes)
+                            data_client().create_savings_initiative(add_property_id,initiative_name,category,
+                                target_savings,realized_savings,status,notes)
                             st.cache_data.clear()
                             st.success("Savings initiative saved.")
                             st.rerun()
