@@ -576,28 +576,49 @@ class EnergyData:
             return None
         return pd.to_datetime(result.iloc[0]["property_contract_end_date"]).date()
 
-    def extend_contract_link(self,scope,link_id,new_end_date):
+    def update_contract_link(self,scope,link_id,contract_number,contract_name,start_date,end_date):
         q=self.qschema; lid=self._sql_string(link_id)
-        end=self._sql_string(str(new_end_date))
-        if scope == "Meter":
-            property_end=self.property_contract_end_date_for_meter(link_id)
-            if property_end is None:
-                raise DataAccessError(
-                    "This meter has no matching property-level contract for its commodity. "
-                    "Create or extend the property contract before extending the meter contract."
-                )
-            if new_end_date > property_end:
-                raise DataAccessError(
-                    f"Meter contract end date cannot be later than the property contract end date "
-                    f"({property_end}). Extend the property contract first."
-                )
+        number=self._sql_string(contract_number); name=self._sql_string(contract_name)
+        start=self._sql_string(str(start_date)); end=self._sql_string(str(end_date))
+        if end_date < start_date:
+            raise DataAccessError("Contract end date cannot be earlier than its start date.")
         table="bridge_property_contract" if scope == "Property" else "bridge_meter_contract"
         key="property_contract_id" if scope == "Property" else "meter_contract_id"
+        # Dates are stored on the relationship; descriptive contract fields are
+        # stored once on dim_contract and therefore update consistently in all views.
+        self.execute(f"""
+            UPDATE {q}.dim_contract
+            SET contract_number={number}, contract_name={name},
+                contract_start_date=CAST({start} AS DATE),
+                contract_end_date=CAST({end} AS DATE),
+                updated_at=current_timestamp()
+            WHERE contract_id=(
+                SELECT contract_id FROM {q}.{table} WHERE {key}={lid}
+            )
+        """)
         self.execute(f"""
             UPDATE {q}.{table}
-            SET effective_end_date=CAST({end} AS DATE)
+            SET effective_start_date=CAST({start} AS DATE),
+                effective_end_date=CAST({end} AS DATE)
             WHERE {key}={lid}
         """)
+
+    def delete_contract_link(self,scope,link_id):
+        q=self.qschema; lid=self._sql_string(link_id)
+        table="bridge_property_contract" if scope == "Property" else "bridge_meter_contract"
+        key="property_contract_id" if scope == "Property" else "meter_contract_id"
+        result=self.query(f"SELECT contract_id FROM {q}.{table} WHERE {key}={lid}")
+        if result.empty:
+            raise DataAccessError("The selected contract link no longer exists.")
+        contract_id=self._sql_string(result.iloc[0]["contract_id"])
+        self.execute(f"DELETE FROM {q}.{table} WHERE {key}={lid}")
+        self.execute(f"""
+            DELETE FROM {q}.dim_contract
+            WHERE contract_id={contract_id}
+              AND NOT EXISTS (SELECT 1 FROM {q}.bridge_property_contract WHERE contract_id={contract_id})
+              AND NOT EXISTS (SELECT 1 FROM {q}.bridge_meter_contract WHERE contract_id={contract_id})
+        """)
+
 
     def create_contract_link(self,scope,property_id,meter_id,contract_number,contract_name,
                              supplier_vendor_id,commodity_id,start_date,end_date,currency_code,
