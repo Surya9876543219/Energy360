@@ -1763,11 +1763,14 @@ def render_dashboard(start_d, end_d, state):
 
     st.markdown("### Compliance Overview")
     if not obligations.empty:
-        status = obligations["compliance_status"].fillna("Not Reported").astype(str).str.strip().str.title()
-        compliant_count = int(status.str.contains("compliant", case=False).sum() - status.str.contains("non", case=False).sum())
-        noncompliant_count = int(status.str.contains("non|overdue|violation", case=False, regex=True).sum())
+        status = obligations["compliance_status"].fillna("Not Reported").astype(str).str.strip().str.lower()
+        noncompliant_mask = status.str.contains(r"non[ -]?compliant|overdue|violation|failed|not compliant", regex=True)
+        compliant_mask = status.isin(["compliant", "in compliance", "passed"]) & ~noncompliant_mask
+        compliant_count = int(compliant_mask.sum())
+        noncompliant_count = int(noncompliant_mask.sum())
+        other_count = max(len(status) - compliant_count - noncompliant_count, 0)
         compliance_summary = pd.DataFrame({"Status":["Compliant","Non-Compliant / Overdue","Other / Pending"],
-                                           "Obligations":[max(compliant_count,0),noncompliant_count,max(len(status)-max(compliant_count,0)-noncompliant_count,0)]})
+                                           "Obligations":[compliant_count,noncompliant_count,other_count]})
         cc1, cc2 = st.columns([1,1.5])
         with cc1:
             metric_row([("Total Obligations", f"{len(obligations):,}", None),
