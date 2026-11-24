@@ -55,7 +55,7 @@ html,body,[class*="css"]{font-family:Inter,Arial,sans-serif}
 [data-testid="stSidebar"]{background:linear-gradient(180deg,#031D36 0%,#0B2D4B 55%,#123C5D 100%);border-right:1px solid #D7E2EC}
 [data-testid="stSidebar"]>div{padding-top:1rem}
 [data-testid="stSidebar"] *{color:#F4F8FC}
-.sidebar-brand{padding:8px 0 20px;border-bottom:1px solid rgba(255,255,255,.25);margin-bottom:18px}
+.sidebar-brand{padding:8px 0 20px;border-bottom:0!important;margin-bottom:18px}
 .sidebar-brand-name{font-size:1.48rem;font-weight:850;letter-spacing:-.7px;color:#FFFFFF}
 .sidebar-brand-name span{color:#22C5D5}
 .sidebar-brand-sub{font-size:.78rem;color:#C4D3E0;margin-top:4px}
@@ -467,7 +467,6 @@ def filters():
                     on_click=_choose_page,
                     args=(page_name,),
                 )
-        st.divider()
         st.caption(f"Catalog: {CATALOG}")
         st.caption(f"Schema: {SCHEMA}")
     return st.session_state["active_energy_page"]
