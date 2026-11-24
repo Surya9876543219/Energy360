@@ -993,6 +993,7 @@ def clear_property_crud_cache():
     get_all_contracts.clear()
 
 
+@st.fragment
 def render_crud_entity(entity, title, property_id):
     client = data_client()
     try:
@@ -1036,74 +1037,60 @@ def render_crud_entity(entity, title, property_id):
         st.caption(f"No {title.lower()} records found.")
         return
 
-    # Preserve the selected row through Streamlit's normal rerun while keeping
-    # the record list as a compact, real HTML table.
-    action = st.query_params.get("crud_action", "")
-    action_entity = st.query_params.get("crud_entity", "")
-    action_property = st.query_params.get("crud_property", "")
-    action_record = st.query_params.get("crud_record", "")
-    if action_entity == entity and action_property == str(property_id) and action_record:
-        if action == "edit":
-            st.session_state[f"crud_active_edit_{entity}_{property_id}"] = action_record
-            st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
-        elif action == "delete":
-            st.session_state[f"crud_active_delete_{entity}_{property_id}"] = action_record
-            st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
-        st.query_params.clear()
-
+    # Native Streamlit controls run inside this fragment, so row actions
+    # update only Property Operations instead of reloading the full dashboard.
     visible = list(rows.columns)
-    header_html = "".join(
-        f"<th>{html.escape(str(col).replace('_', ' ').title())}</th>"
-        for col in visible
-    )
-    body_html = []
-    for _, table_record in rows.iterrows():
-        rid = str(table_record[key_col])
-        cells_html = []
-        for col_name in visible:
-            raw_value = table_record.get(col_name)
-            if pd.isna(raw_value):
-                display_value = "—"
-            elif isinstance(raw_value, pd.Timestamp):
-                display_value = raw_value.strftime("%Y-%m-%d")
-            else:
-                display_value = str(raw_value)
-            cells_html.append(f"<td>{html.escape(display_value)}</td>")
-        action_params = {
-            "crud_entity": entity,
-            "crud_property": str(property_id),
-            "crud_record": rid,
-            "crud_page": "Property Energy Management",
-            "crud_section": st.session_state.get(f"property_ops_section_{property_id}", "Meters & Readings"),
-        }
-        edit_url = "?" + urlencode({**action_params, "crud_action": "edit"}) + "#crud-form"
-        delete_url = "?" + urlencode({**action_params, "crud_action": "delete"}) + "#crud-form"
-        cells_html.append(
-            f'<td class="crud-action"><a href="{html.escape(edit_url, quote=True)}" target="_self">Edit</a></td>'
-        )
-        cells_html.append(
-            f'<td class="crud-action"><a href="{html.escape(delete_url, quote=True)}" target="_self">Delete</a></td>'
-        )
-        body_html.append("<tr>" + "".join(cells_html) + "</tr>")
-
-    table_html = f"""
+    widths = [2.0] * len(visible) + [0.9, 0.9]
+    st.markdown("""
     <style>
-      .crud-table-wrap {{ width:100%; max-width:100%; overflow-x:auto; overflow-y:hidden; background:#FFFFFF; }}
-      table.crud-table {{ border-collapse:collapse; width:max-content; min-width:100%; white-space:nowrap; font-size:13px; color:#17324D; }}
-      .crud-table th,.crud-table td {{ padding:10px 12px; text-align:left; border-bottom:1px solid #E5EDF4; min-width:105px; max-width:320px; border-left:0; border-right:0; }}
-      .crud-table th {{ background:#F7F9FC; font-weight:650; color:#173A59; }}
-      .crud-table th:empty {{ background:transparent; border:0; padding:0; min-width:0; }}
-      .crud-table td.crud-action {{ min-width:76px; width:76px; padding:8px; }}
-      .crud-table td.crud-action a {{ display:inline-block; min-width:60px; padding:7px 10px; text-align:center; text-decoration:none; color:#173A59; background:#FFFFFF; border:1px solid #D7DEE7; border-radius:7px; }}
+      [class*="st-key-crud-native-grid-"] { width:100% !important; max-width:100% !important; overflow-x:auto !important; }
+      [class*="st-key-crud-native-grid-"] [data-testid="stVerticalBlock"] { gap:0 !important; }
+      [class*="st-key-crud-native-grid-"] [data-testid="stHorizontalBlock"] {
+        width:max-content !important; min-width:max-content !important;
+        flex-wrap:nowrap !important; gap:8px !important; align-items:center !important;
+      }
+      [class*="st-key-crud-native-grid-"] [data-testid="column"] {
+        flex:0 0 150px !important; min-width:150px !important; width:150px !important;
+      }
+      [class*="st-key-crud-native-grid-"] [data-testid="column"]:nth-last-child(-n+2) {
+        flex:0 0 84px !important; min-width:84px !important; width:84px !important;
+      }
+      [class*="st-key-crud-native-grid-"] [data-testid="stButton"] { margin:0 !important; }
+      [class*="st-key-crud-native-grid-"] [data-testid="stButton"] button {
+        min-width:78px !important; width:78px !important; white-space:nowrap !important;
+      }
     </style>
-    <div class="crud-table-wrap">
-      <table class="crud-table">
-        <thead><tr>{header_html}<th></th><th></th></tr></thead>
-        <tbody>{"".join(body_html)}</tbody>
-      </table>
-    </div>
-    """
-    st.markdown(table_html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+    with st.container(key=f"crud-native-grid-{entity}-{property_id}"):
+        header = st.columns(widths, vertical_alignment="center")
+        for idx, col_name in enumerate(visible):
+            with header[idx]:
+                st.markdown(f"**{col_name.replace('_', ' ').title()}**")
+        st.divider()
+
+        for _, table_record in rows.iterrows():
+            rid = str(table_record[key_col])
+            cells = st.columns(widths, vertical_alignment="center")
+            for idx, col_name in enumerate(visible):
+                raw_value = table_record.get(col_name)
+                if pd.isna(raw_value):
+                    display_value = "—"
+                elif isinstance(raw_value, pd.Timestamp):
+                    display_value = raw_value.strftime("%Y-%m-%d")
+                else:
+                    display_value = str(raw_value)
+                with cells[idx]:
+                    st.write(display_value)
+            with cells[-2]:
+                if st.button("Edit", key=f"crud_edit_row_{entity}_{property_id}_{rid}", use_container_width=True):
+                    st.session_state[f"crud_active_edit_{entity}_{property_id}"] = rid
+                    st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+            with cells[-1]:
+                if st.button("Delete", key=f"crud_delete_row_{entity}_{property_id}_{rid}", use_container_width=True):
+                    st.session_state[f"crud_active_delete_{entity}_{property_id}"] = rid
+                    st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+            st.divider()
 
     for _, record in rows.iterrows():
         record_id = str(record[key_col])
