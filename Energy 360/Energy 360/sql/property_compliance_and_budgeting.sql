@@ -143,17 +143,25 @@ CREATE TABLE IF NOT EXISTS fact_property_savings_initiative (
 MERGE INTO fact_property_energy_budget t
 USING (
   SELECT * FROM VALUES
-    ('BUD-HOU-2026','PROP-HOU-001','2026 Energy Budget - Houston Office Center',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',185000.00,'USD','Draft'),
-    ('BUD-DAL-2026','PROP-DAL-001','2026 Energy Budget - Dallas Distribution Campus',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',310000.00,'USD','Draft'),
-    ('BUD-CHI-2026','PROP-CHI-001','2026 Energy Budget - Chicago Residential Tower',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',225000.00,'USD','Draft'),
-    ('BUD-NYC-2026','PROP-NYC-001','2026 Energy Budget - New York Business Center',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',142000.00,'USD','Draft')
+    ('BUD-HOU-2026','PROP-HOU-001','2026 Energy Budget - Houston Office Center',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',185000.00,'USD','Approved'),
+    ('BUD-DAL-2026','PROP-DAL-001','2026 Energy Budget - Dallas Distribution Campus',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',310000.00,'USD','Approved'),
+    ('BUD-PHX-2026','PROP-PHX-001','2026 Energy Budget - Phoenix Retail Plaza',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',168000.00,'USD','Approved'),
+    ('BUD-CHI-2026','PROP-CHI-001','2026 Energy Budget - Chicago Residential Tower',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',225000.00,'USD','Approved'),
+    ('BUD-NYC-2026','PROP-NYC-001','2026 Energy Budget - New York Business Center',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',142000.00,'USD','Approved')
   AS s(budget_id,property_id,budget_name,fiscal_year,commodity_id,period_start_date,period_end_date,budget_amount,currency_code,approval_status)
 ) s ON t.budget_id=s.budget_id
+WHEN MATCHED THEN UPDATE SET
+ t.budget_name=s.budget_name,t.fiscal_year=s.fiscal_year,t.commodity_id=s.commodity_id,
+ t.period_start_date=s.period_start_date,t.period_end_date=s.period_end_date,
+ t.budget_amount=s.budget_amount,t.currency_code=s.currency_code,
+ t.approval_status=s.approval_status,
+ t.notes='Synthetic demonstration budget for dashboard validation; not a real finance approval.',
+ t.updated_at=current_timestamp()
 WHEN NOT MATCHED THEN INSERT
  (budget_id,property_id,budget_name,fiscal_year,commodity_id,period_start_date,period_end_date,budget_amount,currency_code,approval_status,notes,created_at,updated_at)
 VALUES
  (s.budget_id,s.property_id,s.budget_name,s.fiscal_year,s.commodity_id,s.period_start_date,s.period_end_date,s.budget_amount,s.currency_code,s.approval_status,
-  'Synthetic demonstration budget. Replace with approved finance data.',current_timestamp(),current_timestamp());
+  'Synthetic demonstration budget for dashboard validation; not a real finance approval.',current_timestamp(),current_timestamp());
 
 MERGE INTO fact_property_savings_initiative t
 USING (
@@ -170,11 +178,18 @@ USING (
     ('SAV-NYC-HVAC','PROP-NYC-001','Chiller Plant Optimization','HVAC',24000.00,5300.00,'USD','In Progress','2026-03-01',DATE'2026-12-31')
   AS s(initiative_id,property_id,initiative_name,initiative_category,target_savings_amount,realized_savings_amount,currency_code,initiative_status,start_date,target_completion_date)
 ) s ON t.initiative_id=s.initiative_id
+WHEN MATCHED THEN UPDATE SET
+ t.initiative_name=s.initiative_name,t.initiative_category=s.initiative_category,
+ t.target_savings_amount=s.target_savings_amount,t.realized_savings_amount=s.realized_savings_amount,
+ t.currency_code=s.currency_code,t.initiative_status=s.initiative_status,
+ t.start_date=s.start_date,t.target_completion_date=s.target_completion_date,
+ t.notes='Synthetic demonstration initiative; replace estimates with measured and verified results.',
+ t.updated_at=current_timestamp()
 WHEN NOT MATCHED THEN INSERT
  (initiative_id,property_id,initiative_name,initiative_category,target_savings_amount,realized_savings_amount,currency_code,initiative_status,start_date,target_completion_date,notes,created_at,updated_at)
 VALUES
  (s.initiative_id,s.property_id,s.initiative_name,s.initiative_category,s.target_savings_amount,s.realized_savings_amount,s.currency_code,s.initiative_status,s.start_date,s.target_completion_date,
-  'Synthetic demonstration initiative. Replace savings estimates with measured and verified results.',current_timestamp(),current_timestamp());
+  'Synthetic demonstration initiative; replace estimates with measured and verified results.',current_timestamp(),current_timestamp());
 
 -- Post-deployment checks
 SELECT 'dim_compliance_standard' AS table_name, COUNT(*) AS row_count FROM dim_compliance_standard
