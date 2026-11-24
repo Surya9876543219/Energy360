@@ -1,4 +1,6 @@
 import os
+import html
+from urllib.parse import urlencode
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -1031,76 +1033,95 @@ def render_crud_entity(entity, title, property_id):
                     st.error(f"Could not create record: {exc}")
 
     if rows.empty:
-        st.caption(f"No {title.lower()} records found.")
-        return
+        st.caption(f"No {t    # Resolve row actions from the table links. This avoids squeezing Streamlit
+    # columns into a fake grid and lets the HTML table scroll as one real table.
+    action = st.query_params.get("crud_action", "")
+    action_entity = st.query_params.get("crud_entity", "")
+    action_property = st.query_params.get("crud_property", "")
+    action_record = st.query_params.get("crud_record", "")
+    if action_entity == entity and action_property == str(property_id) and action_record:
+        if action == "edit":
+            st.session_state[f"crud_active_edit_{entity}_{property_id}"] = action_record
+            st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+        elif action == "delete":
+            st.session_state[f"crud_active_delete_{entity}_{property_id}"] = action_record
+            st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
 
-    st.markdown("""
+    visible = list(rows.columns)
+    header_html = "".join(
+        f"<th>{html.escape(str(col).replace('_', ' ').title())}</th>"
+        for col in visible
+    )
+    body_html = []
+    for _, table_record in rows.iterrows():
+        rid = str(table_record[key_col])
+        cells_html = []
+        for col_name in visible:
+            raw_value = table_record.get(col_name)
+            if pd.isna(raw_value):
+                display_value = "—"
+            elif isinstance(raw_value, pd.Timestamp):
+                display_value = raw_value.strftime("%Y-%m-%d")
+            else:
+                display_value = str(raw_value)
+            cells_html.append(f"<td>{html.escape(display_value)}</td>")
+        edit_url = "?" + urlencode({
+            "crud_action": "edit", "crud_entity": entity,
+            "crud_property": str(property_id), "crud_record": rid,
+        })
+        delete_url = "?" + urlencode({
+            "crud_action": "delete", "crud_entity": entity,
+            "crud_property": str(property_id), "crud_record": rid,
+        })
+        cells_html.append(
+            f'<td class="crud-action"><a href="{html.escape(edit_url, quote=True)}">Edit</a></td>'
+        )
+        cells_html.append(
+            f'<td class="crud-action"><a href="{html.escape(delete_url, quote=True)}">Delete</a></td>'
+        )
+        body_html.append("<tr>" + "".join(cells_html) + "</tr>")
+
+    table_html = f"""
     <style>
-    /* Property CRUD grid: keep every data column readable and scroll horizontally. */
-    [class*="st-key-crud-grid-"] {
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow-x: auto !important;
-        overflow-y: visible !important;
-    }
-    [class*="st-key-crud-grid-"] [data-testid="stHorizontalBlock"] {
-        width: max-content !important;
-        min-width: max-content !important;
-        flex-wrap: nowrap !important;
-        gap: 0.5rem !important;
-    }
-    [class*="st-key-crud-grid-"] [data-testid="column"] {
-        flex: 0 0 170px !important;
-        min-width: 170px !important;
-        width: 170px !important;
-    }
-    [class*="st-key-crud-grid-"] [data-testid="stHorizontalBlock"] [data-testid="column"]:nth-last-child(2),
-    [class*="st-key-crud-grid-"] [data-testid="stHorizontalBlock"] [data-testid="column"]:last-child {
-        flex: 0 0 112px !important;
-        min-width: 112px !important;
-        width: 112px !important;
-    }
-    [class*="st-key-crud-grid-"] [data-testid="stButton"] button {
-        min-width: 104px !important;
-        width: 104px !important;
-        white-space: nowrap !important;
-    }
+      .crud-table-wrap {{
+        width: 100%; max-width: 100%; overflow-x: auto; overflow-y: hidden;
+        border: 1px solid #DCE6EF; border-radius: 8px;
+        background: #FFFFFF;
+      }}
+      table.crud-table {{
+        border-collapse: collapse; width: max-content; min-width: 100%;
+        table-layout: auto; white-space: nowrap; font-size: 13px;
+        color: #17324D;
+      }}
+      .crud-table th, .crud-table td {{
+        padding: 10px 12px; text-align: left; border-bottom: 1px solid #E5EDF4;
+        min-width: 105px; max-width: 320px;
+      }}
+      .crud-table th {{
+        position: sticky; top: 0; background: #F7F9FC;
+        font-weight: 650; color: #173A59;
+      }}
+      .crud-table tr:last-child td {{ border-bottom: 0; }}
+      .crud-table td.crud-action {{ min-width: 76px; width: 76px; padding: 8px; }}
+      .crud-table td.crud-action a {{
+        display: inline-block; min-width: 60px; padding: 7px 10px;
+        text-align: center; text-decoration: none; color: #173A59;
+        background: #FFFFFF; border: 1px solid #D7DEE7; border-radius: 7px;
+      }}
+      .crud-table td.crud-action a:hover {{ background: #F0F5FA; }}
     </style>
-    """, unsafe_allow_html=True)
-    with st.container(key=f"crud-grid-{entity}-{property_id}"):
-        # Show every available field in the record grid, followed by row actions.
-        # The full-width grid preserves the original table-like presentation.
-        visible = list(rows.columns)
-        widths = [2.0] * len(visible) + [1.05, 1.05]
-        header_cells = st.columns(widths, vertical_alignment="center")
-        for idx, col_name in enumerate(visible):
-            with header_cells[idx]:
-                st.markdown(f"**{col_name.replace('_', ' ').title()}**")
-        st.divider()
-    
-        for _, record in rows.iterrows():
-            record_id = str(record[key_col])
-            cells = st.columns(widths, vertical_alignment="center")
-            for idx, col_name in enumerate(visible):
-                with cells[idx]:
-                    value = record.get(col_name)
-                    if pd.isna(value):
-                        value = "—"
-                    elif isinstance(value, (pd.Timestamp,)):
-                        value = value.strftime("%Y-%m-%d")
-                    else:
-                        value = str(value)
-                    st.write(value)
-            edit_key = f"crud_edit_row_{entity}_{property_id}_{record_id}"
-            delete_key = f"crud_delete_row_{entity}_{property_id}_{record_id}"
-            with cells[-2]:
-                if st.button("Edit", key=edit_key, use_container_width=True):
-                    st.session_state[f"crud_active_edit_{entity}_{property_id}"] = record_id
-                    st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
-            with cells[-1]:
-                if st.button("Delete", key=delete_key, use_container_width=True):
-                    st.session_state[f"crud_active_delete_{entity}_{property_id}"] = record_id
-                    st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+    <div class="crud-table-wrap">
+      <table class="crud-table">
+        <thead><tr>{header_html}<th></th><th></th></tr></thead>
+        <tbody>{"".join(body_html)}</tbody>
+      </table>
+    </div>
+    """
+    st.markdown(table_html, unsafe_allow_html=True)
+
+    for _, record in rows.iterrows():
+        record_id = str(record[key_col])
+ctive_edit_{entity}_{property_id}", None)
     
             active_edit = st.session_state.get(f"crud_active_edit_{entity}_{property_id}")
             if active_edit == record_id:
