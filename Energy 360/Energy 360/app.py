@@ -613,6 +613,50 @@ button[title*="sidebar" i] svg,
     opacity: 1 !important;
 }
 
+
+/* Final banner treatment: solid blue only, with no turbine image or image frame. */
+.hero-banner {
+    position: relative !important;
+    overflow: hidden !important;
+    background: linear-gradient(110deg, #062744 0%, #0A3558 58%, #10466B 100%) !important;
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    margin-top: 0 !important;
+}
+.hero-banner:after {
+    content: none !important;
+    display: none !important;
+    background: none !important;
+}
+/* Remove the white Streamlit top strip and its reserved height. */
+header[data-testid="stHeader"],
+[data-testid="stHeader"],
+[data-testid="stToolbar"] {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+[data-testid="stHeader"] {
+    height: 0 !important;
+    min-height: 0 !important;
+}
+[data-testid="stToolbar"] {
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+}
+/* Keep only the native sidebar toggle available above the page. */
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarExpandButton"],
+[data-testid="stSidebarCollapsedControl"] {
+    z-index: 100300 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
