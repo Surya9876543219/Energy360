@@ -1104,19 +1104,19 @@ def render_crud_entity(entity, title, property_id):
     """, unsafe_allow_html=True)
 
     with st.container(key=grid_key):
-        # Render the header as one fixed-width HTML row so header cells cannot
-        # collapse together or inherit Streamlit column sizing.
-        header_cells = "".join(
-            f'<div class="crud-header-cell" style="flex:0 0 {data_width}px;width:{data_width}px;min-width:{data_width}px;">'
-            f'<span title="{html.escape(col_name.replace("_", " ").title(), quote=True)}">'
-            f'{html.escape(col_name.replace("_", " ").title())}</span></div>'
-            for col_name in visible
-        )
-        st.markdown(
-            f'<div class="crud-header-row" style="display:flex;flex-wrap:nowrap;width:max-content;min-width:100%;border-bottom:1px solid #E5EDF4;">'
-            f'{header_cells}<div style="flex:0 0 88px;width:88px;"></div><div style="flex:0 0 88px;width:88px;"></div></div>',
-            unsafe_allow_html=True,
-        )
+        # Render headers with the exact same Streamlit column structure and
+        # width ratios as each data row. This guarantees header/value alignment.
+        header = st.columns(widths, gap=0, vertical_alignment="center")
+        for idx, col_name in enumerate(visible):
+            with header[idx]:
+                st.markdown(
+                    f'<div style="box-sizing:border-box;width:{data_width-20}px;min-height:42px;white-space:normal;overflow-wrap:anywhere;line-height:1.2;font-weight:650;">{html.escape(col_name.replace("_", " ").title())}</div>',
+                    unsafe_allow_html=True,
+                )
+        with header[-2]:
+            st.markdown("")
+        with header[-1]:
+            st.markdown("")
 
         for _, record in rows.iterrows():
             record_id = str(record[key_col])
