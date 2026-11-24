@@ -13,20 +13,27 @@ st.set_page_config(page_title="Energy 360 | Enterprise Energy Management", page_
 st.markdown("""
 <style>
 
-/* Keep the native Streamlit sidebar toggle available as a floating control.
-   The header overlays the page instead of reserving vertical space. */
-header[data-testid="stHeader"],[data-testid="stHeader"]{
- display:flex!important;visibility:visible!important;opacity:1!important;
- position:fixed!important;top:0!important;left:0!important;right:0!important;
- width:100%!important;height:2.75rem!important;min-height:2.75rem!important;
- padding:0!important;margin:0!important;background:transparent!important;
- border:0!important;box-shadow:none!important;overflow:visible!important;
- z-index:100000!important;pointer-events:none!important
+/* Keep the native sidebar toggle visible without reserving a blank header row. */
+header[data-testid="stHeader"], [data-testid="stHeader"] {
+ display:flex!important;
+ visibility:visible!important;
+ opacity:1!important;
+ position:fixed!important;
+ top:0!important; left:0!important; right:0!important;
+ width:100%!important;
+ height:0!important; min-height:0!important;
+ padding:0!important; margin:0!important;
+ background:transparent!important;
+ border:0!important; box-shadow:none!important; overflow:visible!important;
+ z-index:100000!important; pointer-events:none!important;
 }
-[data-testid="stHeader"] [data-testid="stToolbar"]{
- display:flex!important;visibility:visible!important;opacity:1!important;
- height:2.75rem!important;min-height:2.75rem!important;
- pointer-events:auto!important;background:transparent!important
+[data-testid="stHeader"] [data-testid="stToolbar"] {
+ display:flex!important;
+ visibility:visible!important;
+ opacity:1!important;
+ height:0!important; min-height:0!important;
+ pointer-events:none!important;
+ background:transparent!important;
 }
 [data-testid="stSidebarCollapseButton"],
 [data-testid="stSidebarExpandButton"],
@@ -317,6 +324,77 @@ div[data-testid="stDownloadButton"] {
 [data-testid="stToolbar"] [data-testid="stStatusWidget"],
 .stStatusWidget {
     display: none !important;
+}
+
+
+/* Sidebar arrow: crisp white icon on a transparent hit target. */
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarExpandButton"],
+[data-testid="stSidebarCollapsedControl"] {
+    position: fixed !important;
+    top: 8px !important;
+    left: calc(var(--sidebar-width, 18rem) - 42px) !important;
+    z-index: 100010 !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stSidebarExpandButton"] button,
+[data-testid="stSidebarCollapsedControl"] button {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #FFFFFF !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    pointer-events: auto !important;
+}
+[data-testid="stSidebarCollapseButton"] button:hover,
+[data-testid="stSidebarExpandButton"] button:hover,
+[data-testid="stSidebarCollapsedControl"] button:hover {
+    background: rgba(255,255,255,0.12) !important;
+    color: #FFFFFF !important;
+}
+[data-testid="stSidebarCollapseButton"] button svg,
+[data-testid="stSidebarExpandButton"] button svg,
+[data-testid="stSidebarCollapsedControl"] button svg,
+[data-testid="stSidebarCollapseButton"] button svg *,
+[data-testid="stSidebarExpandButton"] button svg *,
+[data-testid="stSidebarCollapsedControl"] button svg * {
+    color: #FFFFFF !important;
+    fill: #FFFFFF !important;
+    stroke: #FFFFFF !important;
+    opacity: 1 !important;
+}
+/* Start the sidebar and hero ribbon at the same top edge. */
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+section[data-testid="stMain"] {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+[data-testid="stSidebar"] {
+    top: 0 !important;
+}
+[data-testid="stSidebar"] > div {
+    padding-top: 3.25rem !important;
+}
+.block-container,
+[data-testid="stMainBlockContainer"],
+section[data-testid="stMain"] .block-container {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+.hero-banner {
+    margin-top: 0 !important;
 }
 
 </style>
