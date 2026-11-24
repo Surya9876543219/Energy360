@@ -1065,12 +1065,14 @@ def render_crud_entity(entity, title, property_id):
         border-bottom:1px solid #E5EDF4 !important; padding:0 !important;
       }}
       .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="column"] {{
+        box-sizing:border-box !important;
         flex:0 0 {data_width}px !important; width:{data_width}px !important;
         min-width:{data_width}px !important; max-width:{data_width}px !important;
         padding:8px 10px !important;
       }}
       .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-last-child(-n+2) {{
-        flex-basis:88px !important; width:88px !important;
+        box-sizing:border-box !important;
+        flex:0 0 88px !important; width:88px !important;
         min-width:88px !important; max-width:88px !important;
       }}
       .st-key-{grid_key} .crud-header-row {{ margin:0 !important; padding:0 !important; }}
