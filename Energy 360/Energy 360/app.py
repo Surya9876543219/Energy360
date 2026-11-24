@@ -1037,46 +1037,73 @@ def render_crud_entity(entity, title, property_id):
         st.caption(f"No {title.lower()} records found.")
         return
 
-    # Keep the approved compact table-like layout. Native buttons are kept
-    # inside this fragment so selecting a row does not rerun the full dashboard.
+    # Keep the same compact table presentation for every CRUD entity.
+    # Wide entities scroll horizontally instead of squeezing/wrapping columns.
     visible = list(rows.columns)
-    widths = [1.45] * len(visible) + [0.78, 0.88]
+    data_width = 118 if len(visible) <= 10 else 132
+    widths = [data_width] * len(visible) + [82, 86]
     st.markdown("""
     <style>
+      [class*="st-key-crud-native-grid-"] {
+        display:block !important;
+        width:100% !important;
+        max-width:100% !important;
+        overflow-x:auto !important;
+        overflow-y:hidden !important;
+      }
       [class*="st-key-crud-native-grid-"] [data-testid="stVerticalBlock"] {
-        gap: 0 !important;
+        display:flex !important;
+        flex-direction:column !important;
+        gap:0 !important;
+        width:max-content !important;
+        min-width:100% !important;
       }
       [class*="st-key-crud-native-grid-"] [data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        gap: 0.35rem !important;
-        padding: 0.28rem 0 !important;
-        border-bottom: 1px solid #E5EDF4;
+        display:flex !important;
+        flex-wrap:nowrap !important;
+        align-items:center !important;
+        gap:0 !important;
+        width:max-content !important;
+        min-width:100% !important;
+        padding:0 !important;
+        border-bottom:1px solid #E5EDF4 !important;
       }
       [class*="st-key-crud-native-grid-"] [data-testid="column"] {
-        min-width: 105px !important;
+        flex:0 0 auto !important;
+        min-width:0 !important;
+        padding:8px 10px !important;
+      }
+      [class*="st-key-crud-native-grid-"] [data-testid="stMarkdownContainer"] p {
+        margin:0 !important;
+        white-space:nowrap !important;
+        overflow:hidden !important;
+        text-overflow:ellipsis !important;
+        font-size:13px !important;
       }
       [class*="st-key-crud-native-grid-"] [data-testid="stButton"] {
-        margin: 0 !important;
+        margin:0 !important;
       }
       [class*="st-key-crud-native-grid-"] [data-testid="stButton"] button {
-        min-width: 68px !important;
-        width: 100% !important;
-        min-height: 34px !important;
-        padding: 0.35rem 0.55rem !important;
-        white-space: nowrap !important;
+        min-width:70px !important;
+        width:100% !important;
+        min-height:34px !important;
+        padding:5px 8px !important;
+        white-space:nowrap !important;
       }
     </style>
     """, unsafe_allow_html=True)
 
     with st.container(key=f"crud-native-grid-{entity}-{property_id}"):
-        header = st.columns(widths, vertical_alignment="center")
+        header = st.columns(widths, gap="small", vertical_alignment="center")
         for idx, col_name in enumerate(visible):
             with header[idx]:
-                st.markdown(f"**{col_name.replace('_', ' ').title()}**")
+                st.markdown(
+                    f'<div style="width:{data_width-20}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:650;">{html.escape(col_name.replace("_", " ").title())}</div>',
+                    unsafe_allow_html=True,
+                )
         for _, table_record in rows.iterrows():
             rid = str(table_record[key_col])
-            cells = st.columns(widths, vertical_alignment="center")
+            cells = st.columns(widths, gap="small", vertical_alignment="center")
             for idx, col_name in enumerate(visible):
                 raw_value = table_record.get(col_name)
                 if pd.isna(raw_value):
@@ -1087,7 +1114,7 @@ def render_crud_entity(entity, title, property_id):
                     display_value = str(raw_value)
                 with cells[idx]:
                     st.markdown(
-                        f'<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
+                        f'<div style="width:{data_width-20}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
                         unsafe_allow_html=True,
                     )
             with cells[-2]:
