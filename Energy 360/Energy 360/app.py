@@ -1323,7 +1323,7 @@ def _choose_page(page_name):
 def filters():
     groups = [
         ("OVERVIEW", ["Executive Dashboard"]),
-        ("OPERATIONS", ["Property Energy Management", "Contract Portfolio"]),
+        ("OPERATIONS", ["Property Energy Management", "Energy Compliance", "Budgets / Savings", "Contract Portfolio"]),
         ("SUSTAINABILITY & MARKETS", [
             "Energy Generation", "Transmission & Distribution", "Energy Consumption",
             "Asset Management", "Forecasting & Analytics", "Sustainability",
@@ -1347,7 +1347,7 @@ def filters():
                 icon = {
                     "Executive Dashboard":"◉", "Energy Generation":"▥",
                     "Transmission & Distribution":"⚡", "Energy Consumption":"♧",
-                    "Property Energy Management":"⌂", "Contract Portfolio":"▤", "Asset Management":"⚙", "Forecasting & Analytics":"⌁",
+                    "Property Energy Management":"⌂", "Energy Compliance":"▣", "Budgets / Savings":"▤", "Contract Portfolio":"▤", "Asset Management":"⚙", "Forecasting & Analytics":"⌁",
                     "Sustainability":"❧", "Energy Cost & Trading":"▤",
                     "Geographical Analysis":"⌖", "Reports & Insights":"▣",
                 }.get(page_name, "•")
@@ -1377,6 +1377,8 @@ def render_hero(page):
         "Transmission & Distribution": "Track grid performance, transmission reliability and distribution availability across the United States.",
         "Energy Consumption": "Analyze energy demand, consumption patterns and usage trends across the United States.",
         "Property Energy Management": "Explore property-level energy usage, meters, utility accounts, suppliers, rates, contracts and procurement.",
+        "Energy Compliance": "Track property energy, water and emissions performance against applicable building benchmarking and performance requirements.",
+        "Budgets / Savings": "Compare approved property energy budgets with actual costs and monitor planned and realized savings initiatives.",
         "Asset Management": "Monitor energy assets, operational health, performance and maintenance indicators.",
         "Forecasting & Analytics": "Explore energy trends, historical performance and analytical insights for better planning.",
         "Sustainability": "Track carbon emissions, clean energy contribution and sustainability performance.",
@@ -2188,6 +2190,228 @@ def render_contract_portfolio():
             key="download_contract_portfolio",
         )
 
+
+def _property_page_context(page_key):
+    """Use the same property master and labels as Property Energy Management."""
+    properties = get_property_list()
+    if properties.empty:
+        st.warning("No properties were found in dim_property.")
+        return None, None
+    property_ids = properties["property_id"].astype(str).tolist()
+    def _label(pid):
+        row = properties.loc[properties["property_id"].astype(str) == str(pid)].iloc[0]
+        place = ", ".join(str(v) for v in [row.get("city"), row.get("state_code")]
+                          if pd.notna(v) and str(v).strip())
+        return f"{row.get('property_name', pid)} | {place} | {pid}"
+    default_id = st.session_state.get("selected_energy_property", property_ids[0])
+    if default_id not in property_ids:
+        default_id = property_ids[0]
+    selected_id = st.selectbox("Select property", property_ids,
+        index=property_ids.index(default_id), format_func=_label,
+        key=f"{page_key}_property_selector")
+    st.session_state["selected_energy_property"] = selected_id
+    prop = properties.loc[properties["property_id"].astype(str) == selected_id].iloc[0]
+    st.markdown(
+        f'<div class="property-detail-line"><span class="property-type">{html.escape(str(prop.get("property_type") or "Property"))}</span>'
+        f'<span>{html.escape(str(prop.get("address_line_1") or ""))}</span>'
+        f'<span>{html.escape(str(prop.get("city") or ""))}, {html.escape(str(prop.get("state_code") or ""))} '
+        f'{html.escape(str(prop.get("postal_code") or ""))}</span></div>',
+        unsafe_allow_html=True)
+    return selected_id, prop
+
+
+def render_energy_compliance():
+    try:
+        property_id, prop = _property_page_context("compliance")
+        if property_id is None:
+            return
+        energy = get_property_energy(property_id)
+    except DataAccessError as exc:
+        st.error("Could not load property energy data.")
+        st.code(str(exc))
+        return
+
+    st.subheader("Building Performance Overview")
+    area = pd.to_numeric(pd.Series([prop.get("gross_area_sqft")]), errors="coerce").iloc[0]
+    frame = energy.copy()
+    if not frame.empty:
+        for col in ["usage_quantity", "emissions_kg_co2e", "cost_amount"]:
+            frame[col] = pd.to_numeric(frame[col], errors="coerce").fillna(0)
+    water_mask = frame["commodity_name"].astype(str).str.contains("water", case=False, na=False) if not frame.empty else pd.Series(dtype=bool)
+    water = frame.loc[water_mask] if not frame.empty else frame
+    non_water = frame.loc[~water_mask] if not frame.empty else frame
+    water_total = float(water["usage_quantity"].sum()) if not water.empty else 0.0
+    water_units = ", ".join(sorted(water["usage_unit"].dropna().astype(str).unique())) if not water.empty else "No water records"
+    emissions = float(frame["emissions_kg_co2e"].sum()) / 1000 if not frame.empty else 0.0
+    metric_row([
+        ("Energy Commodities", f"{non_water['commodity_id'].nunique():,}" if not non_water.empty else "0", "Distinct non-water commodities recorded."),
+        ("Water Usage", f"{water_total:,.2f}", water_units),
+        ("Emissions", f"{emissions:,.2f} tCO2e", "Converted from recorded kg CO2e."),
+        ("Gross Building Area", f"{float(area):,.0f} sq. ft." if pd.notna(area) else "Not provided", "From dim_property."),
+    ])
+    st.subheader("Energy and Water Benchmarking Data")
+    if frame.empty:
+        st.info("No property energy usage is available for this property.")
+    else:
+        by_commodity = frame.groupby(["commodity_name", "usage_unit"], dropna=False, as_index=False).agg(
+            usage=("usage_quantity", "sum"), emissions_kg_co2e=("emissions_kg_co2e", "sum"),
+            cost=("cost_amount", "sum"))
+        st.dataframe(by_commodity, use_container_width=True, hide_index=True)
+        monthly = frame.copy()
+        monthly["period_start_date"] = pd.to_datetime(monthly["period_start_date"], errors="coerce")
+        monthly["reporting_month"] = monthly["period_start_date"].dt.to_period("M").astype(str)
+        trend = monthly.groupby(["reporting_month", "commodity_name"], as_index=False)["usage_quantity"].sum()
+        if not trend.empty:
+            fig = px.line(trend, x="reporting_month", y="usage_quantity", color="commodity_name",
+                          markers=True, title="Monthly Property Usage by Commodity")
+            fig.update_layout(height=330, paper_bgcolor="white", plot_bgcolor="white",
+                              margin=dict(l=10, r=10, t=45, b=10))
+            st.plotly_chart(fig, use_container_width=True, key=f"compliance_usage_{property_id}")
+
+    st.subheader("Compliance Obligations and Reporting")
+    st.caption("Configure only verified municipal, state or regional requirements. Thresholds and deadlines must come from the applicable authority.")
+    try:
+        obligations = data_client().property_compliance_obligations(property_id)
+        reports = data_client().property_compliance_reports(property_id)
+        if obligations.empty:
+            st.info("No compliance obligations are configured for this property yet. Deploy the compliance SQL tables and add verified standards and property obligations.")
+        else:
+            st.dataframe(obligations, use_container_width=True, hide_index=True)
+        if not reports.empty:
+            st.markdown("**Submitted / Prepared Reports**")
+            st.dataframe(reports, use_container_width=True, hide_index=True)
+    except DataAccessError as exc:
+        st.warning("Compliance tracking tables are not available yet. Run sql/property_compliance_and_budgeting.sql.")
+        st.caption(str(exc))
+    if pd.isna(area) or float(area) <= 0:
+        st.warning("Gross building area is missing. Add it to dim_property before calculating area-normalized performance indicators such as EUI.")
+
+
+def render_budgets_savings():
+    try:
+        property_id, prop = _property_page_context("budget_savings")
+        if property_id is None:
+            return
+        energy = get_property_energy(property_id)
+    except DataAccessError as exc:
+        st.error("Could not load property energy data.")
+        st.code(str(exc))
+        return
+
+    view = st.radio("Budgets / Savings", ["Budgets", "Savings"], horizontal=True,
+                    key=f"budget_savings_view_{property_id}")
+    if view == "Budgets":
+        st.subheader("Property Energy Budgets")
+        st.caption("Compare approved budget amounts with actual energy costs recorded for this property.")
+        try:
+            budgets = data_client().property_budget_data(property_id)
+        except DataAccessError as exc:
+            st.warning("Budget tables are not available yet. Run sql/property_compliance_and_budgeting.sql.")
+            st.caption(str(exc))
+            return
+        if budgets.empty:
+            st.info("No budgets have been entered for this property yet. Use Add Budget to create the first approved budget.")
+        else:
+            actual = energy.copy()
+            if not actual.empty:
+                actual["cost_amount"] = pd.to_numeric(actual["cost_amount"], errors="coerce").fillna(0)
+                actual["period_start_date"] = pd.to_datetime(actual["period_start_date"], errors="coerce")
+                actual["period_end_date"] = pd.to_datetime(actual["period_end_date"], errors="coerce")
+            rows = []
+            for _, budget in budgets.iterrows():
+                start = pd.to_datetime(budget["period_start_date"])
+                end = pd.to_datetime(budget["period_end_date"])
+                matched = actual[(actual["period_start_date"] >= start) & (actual["period_end_date"] <= end)] if not actual.empty else actual
+                if pd.notna(budget.get("commodity_id")) and str(budget.get("commodity_id")).strip():
+                    matched = matched[matched["commodity_id"].astype(str) == str(budget["commodity_id"])]
+                actual_cost = float(matched["cost_amount"].sum()) if not matched.empty else 0.0
+                budget_amount = float(budget["budget_amount"] or 0)
+                row = budget.to_dict()
+                row.update({"actual_cost": actual_cost, "remaining_budget": budget_amount-actual_cost,
+                            "variance_pct": ((budget_amount-actual_cost)/budget_amount*100) if budget_amount else None})
+                rows.append(row)
+            comparison = pd.DataFrame(rows)
+            st.dataframe(comparison, use_container_width=True, hide_index=True)
+            total_budget = float(comparison["budget_amount"].fillna(0).sum())
+            total_actual = float(comparison["actual_cost"].fillna(0).sum())
+            metric_row([
+                ("Approved Budget", fmt_usd(total_budget), None),
+                ("Actual Cost", fmt_usd(total_actual), None),
+                ("Remaining / (Overrun)", fmt_usd(total_budget-total_actual), None),
+                ("Budget Utilization", f"{total_actual/total_budget*100:,.1f}%" if total_budget else "—", None),
+            ])
+        with st.expander("＋ Add Budget", expanded=False):
+            with st.form(f"add_property_budget_{property_id}"):
+                left, right = st.columns(2)
+                with left:
+                    budget_name = st.text_input("Budget Name")
+                    fiscal_year = st.number_input("Fiscal Year", min_value=2000, max_value=2100, value=2026, step=1)
+                    budget_amount = st.number_input("Budget Amount (USD)", min_value=0.0, value=0.0, step=1000.0)
+                with right:
+                    commodities = ["All Commodities"] + sorted(energy["commodity_id"].dropna().astype(str).unique().tolist()) if not energy.empty else ["All Commodities"]
+                    commodity_id = st.selectbox("Commodity", commodities)
+                    period_start = st.date_input("Period Start")
+                    period_end = st.date_input("Period End")
+                submitted = st.form_submit_button("Save Budget", type="primary")
+                if submitted:
+                    if not budget_name.strip() or period_end < period_start or budget_amount <= 0:
+                        st.error("Enter a budget name, valid period and amount greater than zero.")
+                    else:
+                        try:
+                            data_client().create_property_budget(property_id, budget_name, int(fiscal_year),
+                                None if commodity_id == "All Commodities" else commodity_id,
+                                period_start, period_end, budget_amount)
+                            st.cache_data.clear()
+                            st.success("Budget saved.")
+                            st.rerun()
+                        except DataAccessError as exc:
+                            st.error(str(exc))
+    else:
+        st.subheader("Energy Savings Initiatives")
+        st.caption("Track planned and realized savings separately. Realized values should be supported by approved measurement and verification.")
+        try:
+            initiatives = data_client().property_savings_data(property_id)
+        except DataAccessError as exc:
+            st.warning("Savings tables are not available yet. Run sql/property_compliance_and_budgeting.sql.")
+            st.caption(str(exc))
+            return
+        if initiatives.empty:
+            st.info("No savings initiatives have been entered for this property yet.")
+        else:
+            initiatives = initiatives.copy()
+            initiatives["progress_pct"] = initiatives.apply(
+                lambda row: (float(row.get("realized_savings_amount") or 0) / float(row.get("target_savings_amount") or 1) * 100)
+                if float(row.get("target_savings_amount") or 0) > 0 else 0, axis=1)
+            st.dataframe(initiatives, use_container_width=True, hide_index=True)
+            metric_row([
+                ("Target Savings", fmt_usd(pd.to_numeric(initiatives["target_savings_amount"], errors="coerce").fillna(0).sum()), None),
+                ("Realized Savings", fmt_usd(pd.to_numeric(initiatives["realized_savings_amount"], errors="coerce").fillna(0).sum()), None),
+                ("Initiatives", f"{len(initiatives):,}", None),
+                ("Completed", f"{int(initiatives['initiative_status'].astype(str).str.lower().eq('completed').sum()):,}", None),
+            ])
+        with st.expander("＋ Add Savings Initiative", expanded=False):
+            with st.form(f"add_savings_initiative_{property_id}"):
+                initiative_name = st.text_input("Initiative Name")
+                category = st.selectbox("Category", ["Lighting", "HVAC", "Controls", "Water", "Renewables", "Operations", "Other"])
+                target_savings = st.number_input("Target Savings (USD)", min_value=0.0, value=0.0, step=500.0)
+                realized_savings = st.number_input("Realized Savings (USD)", min_value=0.0, value=0.0, step=100.0)
+                status = st.selectbox("Status", ["Planned", "In Progress", "Completed", "On Hold"])
+                notes = st.text_area("Notes")
+                submitted = st.form_submit_button("Save Initiative", type="primary")
+                if submitted:
+                    if not initiative_name.strip() or target_savings <= 0 or realized_savings > target_savings:
+                        st.error("Enter an initiative name and positive target; realized savings cannot exceed target.")
+                    else:
+                        try:
+                            data_client().create_savings_initiative(property_id, initiative_name, category,
+                                target_savings, realized_savings, status, notes)
+                            st.cache_data.clear()
+                            st.success("Savings initiative saved.")
+                            st.rerun()
+                        except DataAccessError as exc:
+                            st.error(str(exc))
+
+
 def render_property_energy_management():
     # The global hero banner already displays the page title and description.
     try:
@@ -2474,6 +2698,8 @@ try:
     elif page=="Transmission & Distribution": render_grid(start_d,end_d,state)
     elif page=="Energy Consumption": render_consumption(start_d,end_d,state)
     elif page=="Property Energy Management": render_property_energy_management()
+    elif page=="Energy Compliance": render_energy_compliance()
+    elif page=="Budgets / Savings": render_budgets_savings()
     elif page=="Contract Portfolio": render_contract_portfolio()
     elif page=="Asset Management": render_assets(start_d,end_d,state)
     elif page=="Forecasting & Analytics": render_forecasting(start_d,end_d,state)
