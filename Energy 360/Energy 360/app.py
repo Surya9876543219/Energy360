@@ -1566,138 +1566,271 @@ def render_filter_bar():
     return start_d, end_d, applied_state
 
 def render_dashboard(start_d, end_d, state):
-    data = get_dashboard_data(start_d, end_d, state)
-    gen, cons, grid, plants, emissions, costs = (data[k] for k in ["generation","consumption","grid","capacity","emissions","costs"])
+    """Executive portfolio view sourced only from the four property modules."""
+    page_heading(
+        "Executive Dashboard",
+        "Consolidated energy, financial, compliance and contract performance across the property portfolio."
+    )
+    try:
+        properties = get_property_list()
+        if properties.empty:
+            st.warning("No properties were found in dim_property.")
+            return
 
-    generated = float(gen["generation_mwh"].sum()) if not gen.empty else None
-    consumed = float(cons["consumption_mwh"].sum()) if not cons.empty else None
-    availability = float(grid["gridavailabilitypct"].mean()) if not grid.empty else None
-    capacity = float(plants["installedcapacitymw"].sum()) if not plants.empty else None
-    co2 = float(emissions["emissions_tco2e"].sum()) if not emissions.empty else None
-    cost = float(costs["totalcost_inr"].sum()) if not costs.empty else None
+        property_ids = properties["property_id"].astype(str).tolist()
+        property_names = dict(zip(properties["property_id"].astype(str), properties["property_name"].astype(str)))
+        labels = ["All Properties"] + property_ids
+        def property_label(pid):
+            if pid == "All Properties":
+                return pid
+            row = properties.loc[properties["property_id"].astype(str) == str(pid)].iloc[0]
+            place = ", ".join(str(v) for v in [row.get("city"), row.get("state_code")]
+                              if pd.notna(v) and str(v).strip())
+            return f"{row.get('property_name', pid)} | {place}"
+
+        f1, f2 = st.columns([1, 2])
+        with f1:
+            selected_year = st.selectbox(
+                "Fiscal Year", ["All"] + list(range(pd.Timestamp.now().year, pd.Timestamp.now().year - 5, -1)),
+                key="exec_fiscal_year"
+            )
+        with f2:
+            selected_property = st.selectbox(
+                "Property", labels, index=0, format_func=property_label,
+                key="exec_property_filter"
+            )
+        selected_ids = property_ids if selected_property == "All Properties" else [selected_property]
+
+        # Property Energy Management: collect usage at the selected property grain.
+        energy_frames = []
+        for pid in selected_ids:
+            frame = get_property_energy(pid)
+            if frame is not None and not frame.empty:
+                frame = frame.copy()
+                frame["property_id"] = pid
+                frame["property_name"] = property_names.get(pid, pid)
+                energy_frames.append(frame)
+        energy = pd.concat(energy_frames, ignore_index=True) if energy_frames else pd.DataFrame()
+        if not energy.empty:
+            for col in ["usage_quantity", "cost_amount", "emissions_kg_co2e"]:
+                energy[col] = pd.to_numeric(energy[col], errors="coerce").fillna(0)
+            energy["period_start_date"] = pd.to_datetime(energy["period_start_date"], errors="coerce")
+            if selected_year != "All":
+                energy = energy[energy["period_start_date"].dt.year == int(selected_year)]
+
+        # Budgets / Savings and Contract Portfolio.
+        budgets = data_client().property_budget_portfolio_data()
+        savings = data_client().property_savings_portfolio_data()
+        contracts = get_all_contracts()
+        if not budgets.empty:
+            budgets = budgets[budgets["property_id"].astype(str).isin(selected_ids)].copy()
+            if selected_year != "All":
+                budgets = budgets[pd.to_numeric(budgets["fiscal_year"], errors="coerce") == int(selected_year)]
+        if not savings.empty:
+            savings = savings[savings["property_id"].astype(str).isin(selected_ids)].copy()
+        if contracts is not None and not contracts.empty:
+            contracts = contracts[contracts["property_name"].isin([property_names.get(pid, pid) for pid in selected_ids])].copy()
+
+        # Energy Compliance: obligations and reports are property-specific.
+        obligation_frames, report_frames = [], []
+        for pid in selected_ids:
+            obligations = data_client().property_compliance_obligations(pid)
+            reports = data_client().property_compliance_reports(pid)
+            if obligations is not None and not obligations.empty:
+                obligations = obligations.copy()
+                obligations["property_id"] = pid
+                obligations["property_name"] = property_names.get(pid, pid)
+                obligation_frames.append(obligations)
+            if reports is not None and not reports.empty:
+                reports = reports.copy()
+                reports["property_id"] = pid
+                reports["property_name"] = property_names.get(pid, pid)
+                report_frames.append(reports)
+        obligations = pd.concat(obligation_frames, ignore_index=True) if obligation_frames else pd.DataFrame()
+        reports = pd.concat(report_frames, ignore_index=True) if report_frames else pd.DataFrame()
+
+    except DataAccessError as exc:
+        st.error("Could not load the four property modules for the Executive Dashboard.")
+        st.code(str(exc))
+        return
+
+    # Portfolio KPI calculations.
+    water_mask = energy["commodity_name"].astype(str).str.contains("water", case=False, na=False) if not energy.empty else pd.Series(dtype=bool)
+    energy_usage = float(energy.loc[~water_mask, "usage_quantity"].sum()) if not energy.empty else 0.0
+    water_usage = float(energy.loc[water_mask, "usage_quantity"].sum()) if not energy.empty else 0.0
+    energy_cost = float(energy["cost_amount"].sum()) if not energy.empty else 0.0
+    emissions_tonnes = float(energy["emissions_kg_co2e"].sum()) / 1000 if not energy.empty else 0.0
+    realized_savings = float(pd.to_numeric(savings.get("realized_savings_amount", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()) if not savings.empty else 0.0
+    target_savings = float(pd.to_numeric(savings.get("target_savings_amount", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()) if not savings.empty else 0.0
+    approved_budgets = budgets[budgets["approval_status"].astype(str).str.lower().eq("approved")] if not budgets.empty else pd.DataFrame()
+    approved_budget = float(pd.to_numeric(approved_budgets.get("budget_amount", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()) if not approved_budgets.empty else 0.0
+    active_property_count = len(selected_ids)
 
     cards = [
-        ("⚡", "Energy Generated", f"{generated/1000:,.2f} GWh" if generated is not None else "—", "#16A66A", "#E5F8EE"),
-        ("♧", "Energy Consumed", f"{consumed/1000:,.2f} GWh" if consumed is not None else "—", "#1976D2", "#E6F2FF"),
-        ("▱", "Grid Availability", f"{availability:,.2f}%" if availability is not None else "—", "#8B5CF6", "#F1EAFE"),
-        ("⚡", "Installed Capacity", f"{capacity/1000:,.2f} GW" if capacity is not None else "—", "#E69A19", "#FFF3DD"),
-        ("🍃", "Carbon Emissions", f"{co2:,.2f} tCO₂e" if co2 is not None else "—", "#20A45B", "#E7F8EC"),
-        ("▤", "Energy Cost", fmt_usd(cost), "#168ACB", "#E4F5FC"),
+        ("Energy Consumption", f"{energy_usage:,.0f} kWh", "Non-water energy usage"),
+        ("Water Usage", f"{water_usage:,.0f}", "Recorded water volume"),
+        ("Energy Cost", fmt_usd(energy_cost), "From property energy records"),
+        ("Carbon Emissions", f"{emissions_tonnes:,.2f} tCO₂e", "Converted from kg CO₂e"),
+        ("Realized Savings", fmt_usd(realized_savings), f"Target: {fmt_usd(target_savings)}"),
+        ("Approved Budget", fmt_usd(approved_budget), "Approved budgets only"),
     ]
-    for row_start in (0, 3):
-        card_cols = st.columns(3, gap="medium")
-        for col, (icon, label, value, accent, icon_bg) in zip(card_cols, cards[row_start:row_start+3]):
-            with col:
-                st.markdown(
-                    f'<div class="metric-card" style="--accent:{accent};--icon-bg:{icon_bg}">'
-                    f'<div class="metric-icon">{icon}</div>'
-                    f'<div><div class="metric-label">{label} &nbsp; ⓘ</div>'
-                    f'<div class="metric-value">{value}</div></div></div>',
-                    unsafe_allow_html=True,
-                )
+    metric_row([(label, value, note) for label, value, note in cards])
 
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-    c1, c2 = st.columns([1.08, 1])
+    st.markdown("### Energy Performance")
+    c1, c2 = st.columns(2)
     with c1:
-        st.markdown('<div class="chart-panel">', unsafe_allow_html=True)
-        st.markdown('<div class="chart-title">↗ &nbsp; Generation vs consumption</div>', unsafe_allow_html=True)
-        trend = data["trend"]
-        if not trend.empty:
-            long = trend.melt(id_vars="date", value_vars=["generation_mwh","consumption_mwh"], var_name="metric", value_name="mwh")
-            long["drill_date"] = long["date"].astype(str)
-            long["metric"] = long["metric"].map({"generation_mwh":"Generation","consumption_mwh":"Consumption"})
-            fig = px.line(
-                long, x="date", y="mwh", color="metric", markers=True, custom_data=["drill_date"],
-                color_discrete_map={"Generation":"#1976D2","Consumption":"#25A55B"},
-            )
-            fig.update_traces(line_width=2.5, marker_size=6)
-            fig.update_layout(
-                height=340, margin=dict(l=5,r=5,t=12,b=5), plot_bgcolor="white", paper_bgcolor="white",
-                legend_title="", legend=dict(orientation="h",y=-.18,x=.25),
-                hovermode="x unified",
-            )
-            fig.update_xaxes(showgrid=False,zeroline=False)
-            fig.update_yaxes(gridcolor="#E7EEF4",zeroline=False,title="Energy (MWh)")
-            drill = pd.concat([data["generation"].assign(drill_date=data["generation"]["date"].astype(str)), data["consumption"].assign(drill_date=data["consumption"]["date"].astype(str))], ignore_index=True, sort=False)
-            plotly_drilldown(fig, drill, "dash_generation_consumption", "generation and consumption by date", "drill_date")
+        st.markdown("**Monthly Energy Consumption by Commodity**")
+        if not energy.empty:
+            trend = energy.dropna(subset=["period_start_date"]).copy()
+            trend["Month"] = trend["period_start_date"].dt.to_period("M").dt.to_timestamp()
+            trend = trend.loc[~trend["commodity_name"].astype(str).str.contains("water", case=False, na=False)]
+            trend = trend.groupby(["Month", "commodity_name"], as_index=False)["usage_quantity"].sum()
+            if not trend.empty:
+                fig = px.line(trend, x="Month", y="usage_quantity", color="commodity_name", markers=True,
+                              labels={"usage_quantity":"Usage","Month":"Month","commodity_name":"Commodity"})
+                fig.update_layout(height=330, margin=dict(l=8,r=8,t=20,b=8), paper_bgcolor="white", plot_bgcolor="white", legend_title_text="")
+                fig.update_yaxes(gridcolor="#E7EEF4")
+                fig.update_xaxes(tickformat="%b %Y")
+                st.plotly_chart(fig, use_container_width=True, key="exec_energy_monthly")
+            else:
+                st.info("No monthly energy consumption records for the selected filters.")
         else:
-            st.info("No generation/consumption trend rows for this filter.")
-        st.markdown('</div>', unsafe_allow_html=True)
-
+            st.info("No property energy records for the selected filters.")
     with c2:
-        st.markdown('<div class="chart-panel">', unsafe_allow_html=True)
-        st.markdown('<div class="chart-title">◉ &nbsp; Generation by energy source</div>', unsafe_allow_html=True)
-        by_source = data["by_source"].copy()
-        if not by_source.empty:
-            total_source = float(by_source["generation_mwh"].sum())
-            by_source["share_pct"] = (by_source["generation_mwh"] / total_source * 100) if total_source else 0
-            pie_col, table_col = st.columns([.95, 1.15])
-            with pie_col:
-                fig = px.pie(
-                    by_source,names="energysource",values="generation_mwh",hole=.58,custom_data=["energysource"],
-                    color_discrete_sequence=["#1976D2","#25A55B","#F3B53F","#8A55D8","#14B8C4","#9AA8B5"],
-                )
-                fig.update_traces(textposition="inside",textinfo="percent",hole=.58)
-                fig.update_layout(height=330,margin=dict(l=0,r=0,t=8,b=0),showlegend=False,paper_bgcolor="white")
-                plotly_drilldown(fig, data["generation"], "dash_source_mix", "generation by energy source", "energysource")
-            with table_col:
-                display_source = by_source[["energysource","generation_mwh","share_pct"]].copy()
-                display_source["generation_mwh"] = display_source["generation_mwh"].map(lambda x: f"{x/1000:,.2f}")
-                display_source["share_pct"] = display_source["share_pct"].map(lambda x: f"{x:.2f}%")
-                display_source.columns = ["Energy Source","Generation (GWh)","Share"]
-                st.dataframe(display_source,use_container_width=True,hide_index=True,height=300)
+        st.markdown("**Monthly Energy Cost**")
+        if not energy.empty:
+            cost_trend = energy.dropna(subset=["period_start_date"]).copy()
+            cost_trend["Month"] = cost_trend["period_start_date"].dt.to_period("M").dt.to_timestamp()
+            cost_trend = cost_trend.groupby("Month", as_index=False)["cost_amount"].sum()
+            if not cost_trend.empty:
+                fig = px.line(cost_trend, x="Month", y="cost_amount", markers=True,
+                              labels={"cost_amount":"Energy Cost (USD)","Month":"Month"})
+                fig.update_layout(height=330, margin=dict(l=8,r=8,t=20,b=8), paper_bgcolor="white", plot_bgcolor="white")
+                fig.update_yaxes(gridcolor="#E7EEF4", tickprefix="$")
+                fig.update_xaxes(tickformat="%b %Y")
+                st.plotly_chart(fig, use_container_width=True, key="exec_cost_monthly")
+            else:
+                st.info("No monthly energy cost records for the selected filters.")
         else:
-            st.info("No source-wise generation data available.")
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.info("No energy cost records for the selected filters.")
 
-    c3, c4 = st.columns([1, 1])
-    with c3:
-        st.subheader("State-wise generation")
-        states = data["by_state"]
-        if not states.empty and {"latitude","longitude"}.issubset(states.columns):
-            # Display generation in millions so 13,951,403.2 is shown as 13.95,
-            # rather than Plotly's automatically abbreviated 13.9514032M.
-            states = states.copy()
-            states["generation_millions"] = states["generation_mwh"] / 1_000_000
-            fig = px.scatter_geo(
-                states, lat="latitude", lon="longitude", size="generation_mwh",
-                color="generation_millions", hover_name="statename",
-                hover_data={
-                    "generation_millions":":.2f",
-                    "generation_mwh":False,
-                    "latitude":False,
-                    "longitude":False,
-                },
-                custom_data=["statekey"],
-                scope="usa", color_continuous_scale=["#BFE7D0","#1976D2"],
-                labels={"generation_millions":"Generation (millions)"},
-            )
-            fig.update_traces(
-                marker_colorbar=dict(
-                    title="Generation (millions)",
-                    tickformat=".2f",
-                    exponentformat="none",
-                    showexponent="none",
-                )
-            )
-            fig.update_geos(fitbounds="locations",visible=False,showland=True,landcolor="#F2F7FB",
-                            showcountries=True,countrycolor="#CBD8E5",showocean=True,oceancolor="#FFFFFF")
-            fig.update_layout(height=360,margin=dict(l=0,r=0,t=0,b=0),paper_bgcolor="white")
-            plotly_drilldown(fig, data["generation"], "dash_state_generation", "state generation", "statekey")
+    st.markdown("### Budget & Savings Performance")
+    b1, b2 = st.columns(2)
+    with b1:
+        st.markdown("**Approved Budget vs Actual Energy Cost by Property**")
+        if not approved_budgets.empty:
+            budget_chart = approved_budgets.groupby("property_name", as_index=False)["budget_amount"].sum()
+            if not energy.empty:
+                actual_chart = energy.groupby("property_name", as_index=False)["cost_amount"].sum()
+                budget_chart = budget_chart.merge(actual_chart, on="property_name", how="outer").fillna(0)
+            else:
+                budget_chart["cost_amount"] = 0
+            long = budget_chart.melt(id_vars="property_name", value_vars=["budget_amount","cost_amount"], var_name="Measure", value_name="Amount")
+            long["Measure"] = long["Measure"].map({"budget_amount":"Approved Budget","cost_amount":"Actual Energy Cost"})
+            fig = px.bar(long, x="property_name", y="Amount", color="Measure", barmode="group",
+                         labels={"property_name":"Property","Amount":"Amount (USD)"})
+            fig.update_layout(height=330, margin=dict(l=8,r=8,t=20,b=8), paper_bgcolor="white", plot_bgcolor="white", legend_title_text="")
+            fig.update_yaxes(tickprefix="$", gridcolor="#E7EEF4")
+            st.plotly_chart(fig, use_container_width=True, key="exec_budget_actual")
         else:
-            st.info("State map requires coordinates in dim_state and matching state keys in generation.")
-    with c4:
-        st.subheader("Grid performance by state")
-        if not data["grid_by_state"].empty:
-            fig = px.bar(data["grid_by_state"],x="statename",y="gridavailabilitypct",custom_data=["statename"],
-                         color="gridavailabilitypct",color_continuous_scale=["#F3B53F","#25A55B"])
-            fig.update_layout(height=360,margin=dict(l=5,r=5,t=10,b=5),xaxis_title="",yaxis_title="Availability (%)",coloraxis_showscale=False)
-            plotly_drilldown(fig, data["grid"], "dash_grid_state", "grid performance by state", "statename")
+            st.info("No approved budget records for the selected filters.")
+    with b2:
+        st.markdown("**Target vs Realized Savings by Property**")
+        if not savings.empty:
+            save_chart = savings.groupby("property_name", as_index=False)[["target_savings_amount","realized_savings_amount"]].sum()
+            long = save_chart.melt(id_vars="property_name", var_name="Measure", value_name="Amount")
+            long["Measure"] = long["Measure"].map({"target_savings_amount":"Target Savings","realized_savings_amount":"Realized Savings"})
+            fig = px.bar(long, x="property_name", y="Amount", color="Measure", barmode="group",
+                         labels={"property_name":"Property","Amount":"Savings (USD)"})
+            fig.update_layout(height=330, margin=dict(l=8,r=8,t=20,b=8), paper_bgcolor="white", plot_bgcolor="white", legend_title_text="")
+            fig.update_yaxes(tickprefix="$", gridcolor="#E7EEF4")
+            st.plotly_chart(fig, use_container_width=True, key="exec_savings_comparison")
         else:
-            st.info("No state-wise grid records available.")
+            st.info("No savings initiatives for the selected filters.")
 
-    st.divider()
-    show_df(data["recent_generation"],"Recent generation records",100)
+    st.markdown("### Compliance Overview")
+    if not obligations.empty:
+        status = obligations["compliance_status"].fillna("Not Reported").astype(str).str.strip().str.title()
+        compliant_count = int(status.str.contains("compliant", case=False).sum() - status.str.contains("non", case=False).sum())
+        noncompliant_count = int(status.str.contains("non|overdue|violation", case=False, regex=True).sum())
+        compliance_summary = pd.DataFrame({"Status":["Compliant","Non-Compliant / Overdue","Other / Pending"],
+                                           "Obligations":[max(compliant_count,0),noncompliant_count,max(len(status)-max(compliant_count,0)-noncompliant_count,0)]})
+        cc1, cc2 = st.columns([1,1.5])
+        with cc1:
+            metric_row([("Total Obligations", f"{len(obligations):,}", None),
+                        ("Non-Compliant / Overdue", f"{noncompliant_count:,}", None)])
+        with cc2:
+            fig = px.bar(compliance_summary, x="Status", y="Obligations", color="Status",
+                         color_discrete_map={"Compliant":"#20A46B","Non-Compliant / Overdue":"#D94B55","Other / Pending":"#D69B25"})
+            fig.update_layout(height=280, margin=dict(l=8,r=8,t=15,b=8), showlegend=False, paper_bgcolor="white", plot_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True, key="exec_compliance_status")
+        due_col = next((c for c in ["next_submission_due_date"] if c in obligations.columns), None)
+        if due_col:
+            due = obligations.copy()
+            due[due_col] = pd.to_datetime(due[due_col], errors="coerce")
+            upcoming = due[due[due_col].between(pd.Timestamp.today().normalize(), pd.Timestamp.today().normalize()+pd.Timedelta(days=90))]
+            st.markdown("**Compliance deadlines – next 90 days**")
+            if not upcoming.empty:
+                st.dataframe(upcoming[["property_name","standard_name","compliance_status",due_col]].sort_values(due_col),
+                             use_container_width=True, hide_index=True)
+            else:
+                st.caption("No upcoming compliance deadlines are recorded for the next 90 days.")
+    else:
+        st.info("Compliance obligations are not configured for the selected properties. Compliance status is not inferred from energy usage.")
+
+    st.markdown("### Contract Portfolio")
+    if contracts is not None and not contracts.empty:
+        days = pd.to_numeric(contracts.get("days_remaining", pd.Series(dtype=float)), errors="coerce")
+        active = contracts["contract_status"].astype(str).str.lower().isin(["active","approved"])
+        expiring = days.between(0,90)
+        annual_value = pd.to_numeric(contracts.get("estimated_annual_value", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()
+        metric_row([
+            ("Contracts", f"{len(contracts):,}", "Property and meter links"),
+            ("Active Contracts", f"{int(active.sum()):,}", "Based on contract status"),
+            ("Expiring in 90 Days", f"{int(expiring.sum()):,}", "Days remaining 0–90"),
+            ("Estimated Annual Value", fmt_usd(annual_value), "Contract portfolio"),
+        ])
+        contract_view = contracts.copy()
+        contract_view["days_remaining"] = pd.to_numeric(contract_view["days_remaining"], errors="coerce")
+        contract_view = contract_view.sort_values("days_remaining", na_position="last")
+        st.dataframe(contract_view[[c for c in ["property_name","contract_number","contract_name","supplier_name","commodity_name","contract_status","contract_end_date","days_remaining","estimated_annual_value"] if c in contract_view.columns]].head(15),
+                     use_container_width=True, hide_index=True)
+    else:
+        st.info("No contract portfolio records are available for the selected properties.")
+
+    st.markdown("### Management Alerts & Actions")
+    alerts = []
+    if not budgets.empty and not energy.empty:
+        approved = budgets[budgets["approval_status"].astype(str).str.lower().eq("approved")]
+        for _, row in approved.iterrows():
+            actual_match = energy[energy["property_id"].astype(str) == str(row["property_id"])]
+            start = pd.to_datetime(row.get("period_start_date"), errors="coerce")
+            end = pd.to_datetime(row.get("period_end_date"), errors="coerce")
+            if pd.notna(start) and pd.notna(end):
+                actual_match = actual_match[(actual_match["period_start_date"] >= start) & (actual_match["period_start_date"] <= end)]
+            actual_value = float(actual_match["cost_amount"].sum()) if not actual_match.empty else 0.0
+            budget_value = float(pd.to_numeric(pd.Series([row.get("budget_amount")]), errors="coerce").fillna(0).iloc[0])
+            if budget_value > 0 and actual_value > budget_value:
+                alerts.append({"Priority":"High","Property":row.get("property_name"),"Alert":"Approved energy budget exceeded","Detail":f"Actual {fmt_usd(actual_value)} vs budget {fmt_usd(budget_value)}"})
+    if not contracts.empty:
+        expiring_contracts = contracts[pd.to_numeric(contracts["days_remaining"], errors="coerce").between(0,90)]
+        for _, row in expiring_contracts.iterrows():
+            alerts.append({"Priority":"Medium","Property":row.get("property_name"),"Alert":"Contract expiring within 90 days","Detail":f"{row.get('contract_number','')} – {row.get('days_remaining')} days remaining"})
+    if not obligations.empty and "next_submission_due_date" in obligations:
+        due = obligations.copy()
+        due["next_submission_due_date"] = pd.to_datetime(due["next_submission_due_date"], errors="coerce")
+        due = due[due["next_submission_due_date"].between(pd.Timestamp.today().normalize(), pd.Timestamp.today().normalize()+pd.Timedelta(days=30))]
+        for _, row in due.iterrows():
+            alerts.append({"Priority":"Medium","Property":row.get("property_name"),"Alert":"Compliance submission due within 30 days","Detail":f"{row.get('standard_name','')} – {row.get('next_submission_due_date').date()}"})
+    if alerts:
+        alert_df = pd.DataFrame(alerts)
+        priority_order = pd.Categorical(alert_df["Priority"], categories=["High","Medium","Low"], ordered=True)
+        alert_df = alert_df.assign(_priority=priority_order).sort_values("_priority").drop(columns="_priority")
+        st.dataframe(alert_df, use_container_width=True, hide_index=True)
+    else:
+        st.success("No budget overruns, upcoming contract expirations or near-term compliance deadlines were identified in the selected records.")
+
+    st.caption("Executive metrics are sourced exclusively from Property Energy Management, Energy Compliance, Budgets / Savings and Contract Portfolio. Blank or unconfigured compliance data is not treated as compliant.")
 
 def render_generation(start_d,end_d,state):
     page_heading("Energy Generation","Plant-level output, energy source mix, capacity utilization and target performance.")
