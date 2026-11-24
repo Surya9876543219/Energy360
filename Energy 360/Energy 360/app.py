@@ -957,6 +957,124 @@ def get_property_bills(property_id):
 def get_property_procurement(property_id):
     return data_client().property_procurement_data(property_id)
 
+
+def get_crud_columns(entity):
+    return data_client().crud_columns(entity)
+
+def get_crud_rows(entity, property_id):
+    return data_client().crud_rows(entity, property_id)
+
+def get_crud_choices(entity, column):
+    return data_client().crud_choices(entity, column)
+
+def save_crud_record(entity, values, record_id=None):
+    return data_client().crud_save(entity, values, record_id)
+
+def delete_crud_record(entity, record_id):
+    return data_client().crud_delete(entity, record_id)
+
+
+def render_crud_entity(entity, title, property_id):
+    st.markdown(f"**{title}**")
+    try:
+        client = data_client()
+        table, key_col = client.crud_table(entity)
+        columns = get_crud_columns(entity)
+        rows = get_crud_rows(entity, property_id)
+    except DataAccessError as exc:
+        st.error(f"Unable to load {title.lower()}.")
+        st.caption(str(exc))
+        return
+    if not rows.empty:
+        st.dataframe(rows, use_container_width=True, hide_index=True)
+    else:
+        st.info(f"No {title.lower()} records found for this property.")
+    rels = client.CRUD_RELATIONSHIPS.get(table, {})
+    editable = [c for c in columns if c["name"] not in (key_col, "created_at", "updated_at", "ingestion_timestamp")]
+    with st.expander(f"Add {title.rstrip('s')}", expanded=False):
+        with st.form(f"crud_add_{entity}_{property_id}"):
+            values = {}
+            for col in editable:
+                name, dtype = col["name"], col["type"]
+                label = name.replace("_", " ").title()
+                if name in rels:
+                    options = [("", "— Select —")] + get_crud_choices(entity, name)
+                    chosen = st.selectbox(label, options, format_func=lambda x: x[1],
+                                          key=f"crud_add_{entity}_{name}_{property_id}")
+                    values[name] = chosen[0] or None
+                elif dtype == "boolean":
+                    values[name] = st.checkbox(label, key=f"crud_add_{entity}_{name}_{property_id}")
+                else:
+                    values[name] = st.text_input(label, placeholder=f"Enter {label.lower()}",
+                                                 key=f"crud_add_{entity}_{name}_{property_id}")
+            if st.form_submit_button(f"Add {title.rstrip('s')}", type="primary"):
+                try:
+                    save_crud_record(entity, values)
+                    st.cache_data.clear()
+                    st.success(f"{title.rstrip('s')} added successfully.")
+                    st.rerun()
+                except DataAccessError as exc:
+                    st.error("The record could not be added.")
+                    st.caption(str(exc))
+    if rows.empty:
+        return
+    record_ids = rows[key_col].dropna().astype(str).tolist() if key_col in rows else []
+    if not record_ids:
+        return
+    with st.expander(f"Edit {title.rstrip('s')}", expanded=False):
+        selected_id = st.selectbox("Select record", record_ids,
+                                   key=f"crud_edit_select_{entity}_{property_id}")
+        current = rows.loc[rows[key_col].astype(str) == selected_id].iloc[0]
+        with st.form(f"crud_edit_{entity}_{property_id}_{selected_id}"):
+            values = {}
+            for col in editable:
+                name, dtype = col["name"], col["type"]
+                label = name.replace("_", " ").title()
+                current_value = current.get(name)
+                if name in rels:
+                    options = get_crud_choices(entity, name)
+                    option_ids = [x[0] for x in options]
+                    current_id = str(current_value) if pd.notna(current_value) else ""
+                    if current_id and current_id not in option_ids:
+                        options = [(current_id, current_id)] + options
+                    options = [("", "— None —")] + options
+                    idx = next((i for i,x in enumerate(options) if x[0] == current_id), 0)
+                    chosen = st.selectbox(label, options, index=idx, format_func=lambda x: x[1],
+                                          key=f"crud_edit_{entity}_{name}_{selected_id}")
+                    values[name] = chosen[0] or None
+                elif dtype == "boolean":
+                    values[name] = st.checkbox(label, value=bool(current_value) if pd.notna(current_value) else False,
+                                               key=f"crud_edit_{entity}_{name}_{selected_id}")
+                else:
+                    default = "" if pd.isna(current_value) else str(current_value)
+                    values[name] = st.text_input(label, value=default,
+                                                 key=f"crud_edit_{entity}_{name}_{selected_id}")
+            if st.form_submit_button("Save Changes", type="primary"):
+                try:
+                    save_crud_record(entity, values, selected_id)
+                    st.cache_data.clear()
+                    st.success("Record updated successfully.")
+                    st.rerun()
+                except DataAccessError as exc:
+                    st.error("The record could not be updated.")
+                    st.caption(str(exc))
+    with st.expander(f"Delete {title.rstrip('s')}", expanded=False):
+        delete_id = st.selectbox("Select record to delete", record_ids,
+                                 key=f"crud_delete_select_{entity}_{property_id}")
+        confirm = st.checkbox("I understand this action cannot be undone.",
+                              key=f"crud_delete_confirm_{entity}_{property_id}")
+        if st.button("Delete Record", key=f"crud_delete_btn_{entity}_{property_id}",
+                     disabled=not confirm, type="secondary"):
+            try:
+                delete_crud_record(entity, delete_id)
+                st.cache_data.clear()
+                st.success("Record deleted.")
+                st.rerun()
+            except DataAccessError as exc:
+                st.error("Deletion blocked to protect related data.")
+                st.caption(str(exc))
+
+
 def fmt_k(v, digits=2):
     """Display values >= 1,000 in thousands (K), with two decimals."""
     if v is None or pd.isna(v):
@@ -2114,18 +2232,37 @@ def render_property_energy_management():
         with tab:
             if title == "Contract management":
                 render_contract_management(selected_id, meters)
-            elif frame is None or frame.empty:
-                st.info(f"No {title.lower()} records are linked to this property.")
-            else:
+                continue
+            if frame is not None and not frame.empty:
                 number_formats = {col: fmt_k for col in frame.select_dtypes(include=["number"]).columns if col.lower() != "datekey"}
                 st.dataframe(frame.style.format(number_formats, na_rep="—"), use_container_width=True, hide_index=True)
-                st.download_button(
-                    f"Download {title} CSV",
-                    frame.to_csv(index=False).encode("utf-8"),
-                    file_name=f"energy360_{selected_id}_{title.lower().replace(' ', '_')}.csv",
-                    mime="text/csv",
-                    key=f"property_download_{selected_id}_{title.replace(' ', '_')}",
-                )
+            else:
+                st.info(f"No {title.lower()} records are linked to this property.")
+            if title == "Meter inventory":
+                render_crud_entity("meters", "Meters", selected_id)
+                render_crud_entity("meter_readings", "Meter Readings", selected_id)
+            elif title == "Meter-level contract duration":
+                render_crud_entity("meter_contracts", "Meter Contracts", selected_id)
+            elif title == "Utility accounts":
+                render_crud_entity("accounts", "Utility Accounts", selected_id)
+            elif title == "Vendors and suppliers":
+                render_crud_entity("vendors", "Vendors", selected_id)
+            elif title == "Rate schedules and components":
+                render_crud_entity("rate_classes", "Rate Classes", selected_id)
+                render_crud_entity("rate_schedules", "Rate Schedules", selected_id)
+                render_crud_entity("rate_components", "Rate Components", selected_id)
+            elif title == "Property-level supplier contracts":
+                render_crud_entity("property_contracts", "Property Contracts", selected_id)
+            elif title == "Utility bills":
+                render_crud_entity("bills", "Utility Bills", selected_id)
+                render_crud_entity("bill_lines", "Bill Line Items", selected_id)
+            elif title == "Purchase orders, invoices and payments":
+                render_crud_entity("purchase_orders", "Purchase Orders", selected_id)
+                render_crud_entity("purchase_order_lines", "Purchase Order Lines", selected_id)
+                render_crud_entity("vendor_invoices", "Vendor Invoices", selected_id)
+                render_crud_entity("vendor_invoice_lines", "Vendor Invoice Lines", selected_id)
+                render_crud_entity("vendor_payments", "Vendor Payments", selected_id)
+
 
 # ------------------------- App entry -------------------------
 try:
