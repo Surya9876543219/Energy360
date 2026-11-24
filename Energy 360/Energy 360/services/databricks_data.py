@@ -811,6 +811,17 @@ class EnergyData:
         },
     }
 
+    CRUD_UNIQUE_COLUMNS = {
+        "dim_meter": ["meter_number"],
+        "dim_utility_account": ["account_number"],
+        "dim_vendor": ["vendor_code"],
+        "dim_contract": ["contract_number"],
+        "dim_rate_schedule": ["rate_code"],
+        "fact_energy_bill": ["bill_number"],
+        "fact_purchase_order": ["purchase_order_number"],
+        "fact_vendor_invoice": ["vendor_invoice_number"],
+    }
+
     CRUD_CHILDREN = {
         "dim_property": [("dim_meter","property_id"),("dim_utility_account","property_id"),
             ("bridge_property_contract","property_id"),("bridge_meter_contract","property_id"),
@@ -919,6 +930,15 @@ class EnergyData:
         values = {k:v for k,v in values.items() if k in known and k != key and k not in ("created_at","ingestion_timestamp")}
         if not values:
             raise DataAccessError("No editable values were supplied.")
+        for unique_col in self.CRUD_UNIQUE_COLUMNS.get(table, []):
+            candidate = values.get(unique_col)
+            if candidate not in (None, ""):
+                condition = f"{unique_col}={self._crud_literal(candidate, known[unique_col])}"
+                if record_id is not None:
+                    condition += f" AND {key}<>{self._sql_string(record_id)}"
+                duplicate = self.query(f"SELECT COUNT(*) AS n FROM {self.qschema}.{table} WHERE {condition}")
+                if int(duplicate.iloc[0]["n"]) > 0:
+                    raise DataAccessError(f"{unique_col.replace('_',' ').title()} already exists. Use a unique value.")
         for col, relation in self.CRUD_RELATIONSHIPS.get(table, {}).items():
             if col in values and values[col] not in (None,""):
                 parent, parent_key, _ = relation
@@ -1104,6 +1124,8 @@ class EnergyData:
             return str(key_value)
         else:
             assignments = [f"{c}={self._crud_literal(v,known[c])}" for c,v in values.items()]
+            if "updated_at" in known:
+                assignments.append("updated_at=current_timestamp()")
             self.execute(f"UPDATE {self.qschema}.{table} SET {','.join(assignments)} WHERE {key}={self._sql_string(record_id)}")
             return str(record_id)
 
