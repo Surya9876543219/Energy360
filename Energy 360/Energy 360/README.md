@@ -39,7 +39,14 @@ Replace `<app-service-principal>` with the actual app service principal:
 GRANT USE CATALOG ON CATALOG energy TO `<app-service-principal>`;
 GRANT USE SCHEMA ON SCHEMA energy.energy TO `<app-service-principal>`;
 GRANT SELECT ON ALL TABLES IN SCHEMA energy.energy TO `<app-service-principal>`;
+GRANT MODIFY ON ALL TABLES IN SCHEMA energy.energy TO `<app-service-principal>`;
 ```
+
+## Property Operations CRUD permissions
+
+The Property Energy Management module supports relationship-aware create, update and delete operations for meters, meter readings, meter contracts, utility accounts, vendors, rate classes/schedules/components, property contract links, utility bills and bill lines, purchase orders and lines, vendor invoices and lines, and vendor payments.
+
+The Databricks App service principal requires both `SELECT` and `MODIFY` on the property tables in the configured schema. The CRUD layer validates logical relationships before writes and blocks deletion of parent records that still have dependent records. Delta Lake does not enforce these foreign keys automatically, so keep the application service validations enabled.
 
 ## US sample-data requirements
 
