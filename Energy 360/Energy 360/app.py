@@ -1784,22 +1784,58 @@ def render_dashboard(start_d, end_d, state):
 
         compliance_left, compliance_right = st.columns([1.15, 1.85], gap="medium")
         with compliance_left:
-            st.markdown("**Compliance deadlines – next 90 days**")
-            due_col = "next_submission_due_date" if "next_submission_due_date" in obligations.columns else None
-            if due_col:
-                due = obligations.copy()
-                due[due_col] = pd.to_datetime(due[due_col], errors="coerce")
-                today = pd.Timestamp.today().normalize()
-                upcoming = due[due[due_col].between(today, today + pd.Timedelta(days=90))].copy()
-                if not upcoming.empty:
-                    display_cols = [c for c in ["property_name", "standard_name", "compliance_status", due_col] if c in upcoming.columns]
-                    upcoming = upcoming[display_cols].sort_values(due_col)
-                    upcoming[due_col] = upcoming[due_col].dt.strftime("%d %b %Y")
-                    st.dataframe(upcoming, use_container_width=True, hide_index=True, height=min(260, 38 + 35 * len(upcoming)))
-                else:
-                    st.info("No compliance deadlines are due in the next 90 days.")
+            st.markdown("**Reporting activity & readiness**")
+            report_count = len(reports) if reports is not None else 0
+            reported_obligations = (
+                int(reports["obligation_id"].dropna().astype(str).nunique())
+                if report_count and "obligation_id" in reports.columns else 0
+            )
+            due_dates = pd.to_datetime(obligations.get(
+                "next_submission_due_date", pd.Series(index=obligations.index, dtype="datetime64[ns]")
+            ), errors="coerce")
+            configured_due_dates = int(due_dates.notna().sum())
+            r1, r2, r3 = st.columns(3)
+            with r1:
+                st.metric("Reports on file", f"{report_count:,}")
+            with r2:
+                st.metric("Obligations reported", f"{reported_obligations:,} / {len(obligations):,}")
+            with r3:
+                st.metric("Due dates configured", f"{configured_due_dates:,} / {len(obligations):,}")
+
+            if report_count:
+                st.success("Compliance reporting records are available.")
+                recent_reports = reports.copy()
+                if "submission_date" in recent_reports.columns:
+                    recent_reports["submission_date"] = pd.to_datetime(recent_reports["submission_date"], errors="coerce")
+                    recent_reports = recent_reports.sort_values("submission_date", ascending=False, na_position="last")
+                recent_cols = [c for c in ["report_status", "reporting_period_start", "reporting_period_end", "submission_date", "submission_reference"] if c in recent_reports.columns]
+                recent_reports = recent_reports[recent_cols].head(5)
+                for date_col in ["reporting_period_start", "reporting_period_end", "submission_date"]:
+                    if date_col in recent_reports.columns:
+                        recent_reports[date_col] = pd.to_datetime(recent_reports[date_col], errors="coerce").dt.strftime("%d %b %Y")
+                st.dataframe(recent_reports, use_container_width=True, hide_index=True, height=190)
             else:
-                st.info("No submission due dates are configured for these obligations.")
+                st.info("No compliance reports have been recorded yet. The obligations are configured, but report submissions have not been captured.")
+                st.markdown(
+                    """
+                    <div style="background:#FFFFFF;border:1px solid #DCE7F2;border-radius:10px;padding:14px 16px;margin-top:8px;">
+                      <div style="font-weight:650;color:#123B5D;margin-bottom:9px;">Recommended next steps</div>
+                      <div style="display:flex;gap:10px;align-items:flex-start;margin:7px 0;color:#42566B;">
+                        <span style="color:#D69B25;font-weight:700;">1</span>
+                        <span>Assign an owner to each compliance obligation</span>
+                      </div>
+                      <div style="display:flex;gap:10px;align-items:flex-start;margin:7px 0;color:#42566B;">
+                        <span style="color:#D69B25;font-weight:700;">2</span>
+                        <span>Configure reporting due dates and frequency</span>
+                      </div>
+                      <div style="display:flex;gap:10px;align-items:flex-start;margin:7px 0;color:#42566B;">
+                        <span style="color:#D69B25;font-weight:700;">3</span>
+                        <span>Record submitted reports and supporting references</span>
+                      </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
         with compliance_right:
             st.markdown("**Obligations by status**")
