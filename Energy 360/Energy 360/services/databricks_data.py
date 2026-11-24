@@ -697,6 +697,252 @@ class EnergyData:
         """)
 
 
+
+    # Relationship-aware CRUD for property operations. Logical foreign keys are
+    # validated here because Delta Lake does not enforce conventional FK constraints.
+    CRUD_TABLES = {
+        "meters": ("dim_meter", "meter_id"),
+        "meter_readings": ("fact_meter_reading", "meter_reading_id"),
+        "meter_contracts": ("bridge_meter_contract", "meter_contract_id"),
+        "accounts": ("dim_utility_account", "utility_account_id"),
+        "vendors": ("dim_vendor", "vendor_id"),
+        "rate_classes": ("dim_rate_class", "rate_class_id"),
+        "rate_schedules": ("dim_rate_schedule", "rate_schedule_id"),
+        "rate_components": ("fact_rate_component", "rate_component_id"),
+        "property_contracts": ("bridge_property_contract", "property_contract_id"),
+        "bills": ("fact_energy_bill", "energy_bill_id"),
+        "bill_lines": ("fact_energy_bill_line", "energy_bill_line_id"),
+        "purchase_orders": ("fact_purchase_order", "purchase_order_id"),
+        "purchase_order_lines": ("fact_purchase_order_line", "purchase_order_line_id"),
+        "vendor_invoices": ("fact_vendor_invoice", "vendor_invoice_id"),
+        "vendor_invoice_lines": ("fact_vendor_invoice_line", "vendor_invoice_line_id"),
+        "vendor_payments": ("fact_vendor_payment", "vendor_payment_id"),
+    }
+
+    CRUD_RELATIONSHIPS = {
+        "dim_meter": {
+            "property_id": ("dim_property", "property_id", "property_name"),
+            "property_service_id": ("bridge_property_commodity_service", "property_service_id", "service_location_code"),
+            "utility_account_id": ("dim_utility_account", "utility_account_id", "account_number"),
+            "commodity_id": ("dim_commodity", "commodity_id", "commodity_name"),
+            "parent_meter_id": ("dim_meter", "meter_id", "meter_number"),
+        },
+        "fact_meter_reading": {
+            "property_id": ("dim_property", "property_id", "property_name"),
+            "meter_id": ("dim_meter", "meter_id", "meter_number"),
+            "utility_account_id": ("dim_utility_account", "utility_account_id", "account_number"),
+            "commodity_id": ("dim_commodity", "commodity_id", "commodity_name"),
+        },
+        "bridge_meter_contract": {
+            "property_id": ("dim_property", "property_id", "property_name"),
+            "meter_id": ("dim_meter", "meter_id", "meter_number"),
+            "contract_id": ("dim_contract", "contract_id", "contract_number"),
+        },
+        "dim_utility_account": {
+            "property_id": ("dim_property", "property_id", "property_name"),
+            "property_service_id": ("bridge_property_commodity_service", "property_service_id", "service_location_code"),
+            "commodity_id": ("dim_commodity", "commodity_id", "commodity_name"),
+            "utility_vendor_id": ("dim_vendor", "vendor_id", "vendor_name"),
+            "rate_class_id": ("dim_rate_class", "rate_class_id", "rate_class_name"),
+        },
+        "dim_rate_class": {
+            "utility_vendor_id": ("dim_vendor", "vendor_id", "vendor_name"),
+            "commodity_id": ("dim_commodity", "commodity_id", "commodity_name"),
+        },
+        "dim_rate_schedule": {
+            "rate_class_id": ("dim_rate_class", "rate_class_id", "rate_class_name"),
+            "utility_vendor_id": ("dim_vendor", "vendor_id", "vendor_name"),
+            "commodity_id": ("dim_commodity", "commodity_id", "commodity_name"),
+            "contract_id": ("dim_contract", "contract_id", "contract_number"),
+        },
+        "fact_rate_component": {
+            "rate_schedule_id": ("dim_rate_schedule", "rate_schedule_id", "rate_code"),
+        },
+        "bridge_property_contract": {
+            "property_id": ("dim_property", "property_id", "property_name"),
+            "contract_id": ("dim_contract", "contract_id", "contract_number"),
+            "property_service_id": ("bridge_property_commodity_service", "property_service_id", "service_location_code"),
+        },
+        "fact_energy_bill": {
+            "property_id": ("dim_property", "property_id", "property_name"),
+            "utility_account_id": ("dim_utility_account", "utility_account_id", "account_number"),
+            "vendor_id": ("dim_vendor", "vendor_id", "vendor_name"),
+            "contract_id": ("dim_contract", "contract_id", "contract_number"),
+        },
+        "fact_energy_bill_line": {
+            "energy_bill_id": ("fact_energy_bill", "energy_bill_id", "bill_number"),
+            "property_id": ("dim_property", "property_id", "property_name"),
+            "meter_id": ("dim_meter", "meter_id", "meter_number"),
+            "commodity_id": ("dim_commodity", "commodity_id", "commodity_name"),
+            "rate_schedule_id": ("dim_rate_schedule", "rate_schedule_id", "rate_code"),
+            "rate_component_id": ("fact_rate_component", "rate_component_id", "component_name"),
+        },
+        "fact_purchase_order": {
+            "property_id": ("dim_property", "property_id", "property_name"),
+            "vendor_id": ("dim_vendor", "vendor_id", "vendor_name"),
+            "contract_id": ("dim_contract", "contract_id", "contract_number"),
+        },
+        "fact_purchase_order_line": {
+            "purchase_order_id": ("fact_purchase_order", "purchase_order_id", "purchase_order_number"),
+            "property_id": ("dim_property", "property_id", "property_name"),
+            "commodity_id": ("dim_commodity", "commodity_id", "commodity_name"),
+            "meter_id": ("dim_meter", "meter_id", "meter_number"),
+        },
+        "fact_vendor_invoice": {
+            "vendor_id": ("dim_vendor", "vendor_id", "vendor_name"),
+            "property_id": ("dim_property", "property_id", "property_name"),
+            "contract_id": ("dim_contract", "contract_id", "contract_number"),
+            "purchase_order_id": ("fact_purchase_order", "purchase_order_id", "purchase_order_number"),
+        },
+        "fact_vendor_invoice_line": {
+            "vendor_invoice_id": ("fact_vendor_invoice", "vendor_invoice_id", "vendor_invoice_number"),
+            "purchase_order_line_id": ("fact_purchase_order_line", "purchase_order_line_id", "item_description"),
+            "property_id": ("dim_property", "property_id", "property_name"),
+            "commodity_id": ("dim_commodity", "commodity_id", "commodity_name"),
+        },
+        "fact_vendor_payment": {
+            "vendor_invoice_id": ("fact_vendor_invoice", "vendor_invoice_id", "vendor_invoice_number"),
+            "vendor_id": ("dim_vendor", "vendor_id", "vendor_name"),
+            "property_id": ("dim_property", "property_id", "property_name"),
+        },
+    }
+
+    CRUD_CHILDREN = {
+        "dim_property": [("dim_meter","property_id"),("dim_utility_account","property_id"),
+            ("bridge_property_contract","property_id"),("bridge_meter_contract","property_id"),
+            ("fact_meter_reading","property_id"),("fact_property_energy_usage","property_id"),
+            ("fact_energy_bill","property_id"),("fact_energy_bill_line","property_id"),
+            ("fact_purchase_order","property_id"),("fact_purchase_order_line","property_id"),
+            ("fact_vendor_invoice","property_id"),("fact_vendor_invoice_line","property_id"),
+            ("fact_vendor_payment","property_id")],
+        "dim_meter": [("fact_meter_reading","meter_id"),("fact_property_energy_usage","meter_id"),
+            ("bridge_meter_contract","meter_id"),("fact_energy_bill_line","meter_id"),
+            ("fact_purchase_order_line","meter_id")],
+        "dim_utility_account": [("dim_meter","utility_account_id"),("fact_meter_reading","utility_account_id"),
+            ("fact_property_energy_usage","utility_account_id"),("fact_energy_bill","utility_account_id")],
+        "dim_vendor": [("dim_utility_account","utility_vendor_id"),("dim_rate_class","utility_vendor_id"),
+            ("dim_rate_schedule","utility_vendor_id"),("dim_contract","supplier_vendor_id"),
+            ("dim_contract","broker_vendor_id"),("fact_energy_bill","vendor_id"),
+            ("fact_purchase_order","vendor_id"),("fact_vendor_invoice","vendor_id"),
+            ("fact_vendor_payment","vendor_id")],
+        "dim_rate_class": [("dim_utility_account","rate_class_id"),("dim_rate_schedule","rate_class_id"),
+            ("dim_contract","rate_class_id")],
+        "dim_rate_schedule": [("fact_rate_component","rate_schedule_id"),
+            ("fact_property_energy_usage","rate_schedule_id"),("fact_energy_bill_line","rate_schedule_id"),
+            ("dim_contract","rate_schedule_id")],
+        "fact_rate_component": [("fact_energy_bill_line","rate_component_id")],
+        "dim_contract": [("bridge_property_contract","contract_id"),("bridge_meter_contract","contract_id"),
+            ("fact_property_energy_usage","contract_id"),("fact_energy_bill","contract_id"),
+            ("fact_purchase_order","contract_id"),("fact_vendor_invoice","contract_id"),
+            ("dim_rate_schedule","contract_id")],
+        "fact_energy_bill": [("fact_energy_bill_line","energy_bill_id")],
+        "fact_purchase_order": [("fact_purchase_order_line","purchase_order_id"),
+            ("fact_vendor_invoice","purchase_order_id")],
+        "fact_purchase_order_line": [("fact_vendor_invoice_line","purchase_order_line_id")],
+        "fact_vendor_invoice": [("fact_vendor_invoice_line","vendor_invoice_id"),
+            ("fact_vendor_payment","vendor_invoice_id")],
+    }
+
+    def crud_table(self, entity):
+        if entity not in self.CRUD_TABLES:
+            raise DataAccessError("This data entity is not enabled for editing.")
+        table, key = self.CRUD_TABLES[entity]
+        return table, key
+
+    def crud_columns(self, entity):
+        table, key = self.crud_table(entity)
+        rows = self.query(f"DESCRIBE TABLE {self.qschema}.{table}")
+        cols = []
+        for _, row in rows.iterrows():
+            name = str(row.iloc[0]).strip()
+            dtype = str(row.iloc[1]).strip().lower() if len(row) > 1 else ""
+            if not name or name.startswith("#") or name.startswith("_"):
+                continue
+            cols.append({"name": name, "type": dtype})
+        if not any(c["name"] == key for c in cols):
+            raise DataAccessError(f"Expected key column {key} was not found in {table}.")
+        return cols
+
+    def crud_rows(self, entity, property_id=None, limit=1000):
+        table, key = self.crud_table(entity)
+        where = ""
+        if property_id and "property_id" in [c["name"] for c in self.crud_columns(entity)]:
+            where = f" WHERE property_id={self._sql_string(property_id)}"
+        return self.query(f"SELECT * FROM {self.qschema}.{table}{where} ORDER BY {key} LIMIT {int(limit)}")
+
+    def crud_choices(self, entity, column):
+        table, key = self.crud_table(entity)
+        relation = self.CRUD_RELATIONSHIPS.get(table, {}).get(column)
+        if not relation:
+            return []
+        parent, parent_key, label = relation
+        df = self.query(f"SELECT {parent_key}, {label} FROM {self.qschema}.{parent} ORDER BY {label} LIMIT 2000")
+        if df.empty:
+            return []
+        return [(str(row[parent_key]), str(row[label] if pd.notna(row[label]) else row[parent_key]))
+                for _, row in df.iterrows()]
+
+    def _crud_literal(self, value, dtype):
+        if value is None or (isinstance(value, float) and pd.isna(value)) or value == "":
+            return "NULL"
+        if "date" in dtype and "timestamp" not in dtype:
+            return f"CAST({self._sql_string(str(value))} AS DATE)"
+        if "timestamp" in dtype:
+            return f"CAST({self._sql_string(str(value))} AS TIMESTAMP)"
+        if any(t in dtype for t in ["int","bigint","smallint","tinyint","decimal","numeric","double","float"]):
+            return str(float(value)) if isinstance(value, (int,float,np.number)) else str(value)
+        if dtype == "boolean":
+            return "TRUE" if bool(value) else "FALSE"
+        return self._sql_string(value)
+
+    def crud_save(self, entity, values, record_id=None):
+        table, key = self.crud_table(entity)
+        cols = self.crud_columns(entity)
+        known = {c["name"]: c["type"] for c in cols}
+        values = {k:v for k,v in values.items() if k in known and k != key and k not in ("created_at","ingestion_timestamp")}
+        if not values:
+            raise DataAccessError("No editable values were supplied.")
+        for col, relation in self.CRUD_RELATIONSHIPS.get(table, {}).items():
+            if col in values and values[col] not in (None,""):
+                parent, parent_key, _ = relation
+                found = self.query(f"SELECT COUNT(*) n FROM {self.qschema}.{parent} WHERE {parent_key}={self._crud_literal(values[col],'string')}")
+                if int(found.iloc[0]["n"]) == 0:
+                    raise DataAccessError(f"Invalid relationship: {col} does not exist in {parent}.")
+        for date_col in ("effective_start_date","contract_start_date","account_open_date","bill_period_start","invoice_date","order_date","reading_start_ts","reading_date"):
+            end_col = {"effective_start_date":"effective_end_date","contract_start_date":"contract_end_date",
+                       "account_open_date":"account_close_date","bill_period_start":"bill_period_end",
+                       "invoice_date":"due_date","order_date":"requested_delivery_date","reading_start_ts":"reading_end_ts",
+                       "reading_date":None}.get(date_col)
+            if date_col in values and end_col and values.get(end_col) and values[date_col] and str(values[end_col]) < str(values[date_col]):
+                raise DataAccessError(f"{end_col} cannot be earlier than {date_col}.")
+        if record_id is None:
+            key_value = values.get(key)
+            if not key_value:
+                import uuid
+                key_value = f"{entity[:4].upper()}-{uuid.uuid4().hex[:16].upper()}"
+            values[key] = key_value
+            insert_cols = list(values.keys())
+            literals = [self._crud_literal(values[c], known[c]) for c in insert_cols]
+            self.execute(f"INSERT INTO {self.qschema}.{table} ({','.join(insert_cols)}) VALUES ({','.join(literals)})")
+            return str(key_value)
+        else:
+            assignments = [f"{c}={self._crud_literal(v,known[c])}" for c,v in values.items()]
+            self.execute(f"UPDATE {self.qschema}.{table} SET {','.join(assignments)} WHERE {key}={self._sql_string(record_id)}")
+            return str(record_id)
+
+    def crud_delete(self, entity, record_id):
+        table, key = self.crud_table(entity)
+        checks = self.CRUD_CHILDREN.get(table, [])
+        for child, fk in checks:
+            result = self.query(f"SELECT COUNT(*) AS n FROM {self.qschema}.{child} WHERE {fk}={self._sql_string(record_id)}")
+            if not result.empty and int(result.iloc[0]["n"]) > 0:
+                raise DataAccessError(
+                    f"Cannot delete this {table} record because {int(result.iloc[0]['n'])} related records exist in {child}. "
+                    "Remove or reassign those related records first."
+                )
+        self.execute(f"DELETE FROM {self.qschema}.{table} WHERE {key}={self._sql_string(record_id)}")
+        return True
+
     def property_meter_contract_data(self,property_id):
         q=self.qschema; pid=self._sql_string(property_id)
         return self.query(f"""
