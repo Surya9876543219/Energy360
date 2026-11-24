@@ -871,13 +871,26 @@ class EnergyData:
             where = f" WHERE property_id={self._sql_string(property_id)}"
         return self.query(f"SELECT * FROM {self.qschema}.{table}{where} ORDER BY {key} LIMIT {int(limit)}")
 
-    def crud_choices(self, entity, column):
+    def crud_choices(self, entity, column, property_id=None):
         table, key = self.crud_table(entity)
         relation = self.CRUD_RELATIONSHIPS.get(table, {}).get(column)
         if not relation:
             return []
         parent, parent_key, label = relation
-        df = self.query(f"SELECT {parent_key}, {label} FROM {self.qschema}.{parent} ORDER BY {label} LIMIT 2000")
+        scope = ""
+        if property_id and (parent == "dim_property" or "property_id" in [c["name"] for c in self.crud_columns_for_table(parent)]):
+            scope = f" WHERE property_id={self._sql_string(property_id)}"
+        df = self.query(f"SELECT {parent_key}, {label} FROM {self.qschema}.{parent}{scope} ORDER BY {label} LIMIT 2000")
+
+    def crud_columns_for_table(self, table):
+        if table not in {v[0] for v in self.CRUD_TABLES.values()} and table not in {
+            "dim_property","dim_commodity","bridge_property_commodity_service","dim_contract"
+        }:
+            raise DataAccessError("Relationship lookup table is not enabled.")
+        rows = self.query(f"DESCRIBE TABLE {self.qschema}.{table}")
+        return [{"name": str(r.iloc[0]).strip(), "type": str(r.iloc[1]).strip().lower()}
+                for _, r in rows.iterrows()
+                if str(r.iloc[0]).strip() and not str(r.iloc[0]).strip().startswith("#")]
         if df.empty:
             return []
         return [(str(row[parent_key]), str(row[label] if pd.notna(row[label]) else row[parent_key]))
@@ -974,12 +987,6 @@ class EnergyData:
                         raise DataAccessError("Rate schedule commodity must match its rate class.")
                     if pd.notna(row["utility_vendor_id"]) and str(row["utility_vendor_id"]) != str(vendor):
                         raise DataAccessError("Rate schedule utility vendor must match its rate class.")
-        elif table == "fact_purchase_order":
-            contract, vendor = values.get("contract_id"), values.get("vendor_id")
-            if contract:
-                check = self.query(f"SELECT supplier_vendor_id FROM {self.qschema}.dim_contract WHERE contract_id={self._sql_string(contract)}")
-                if not check.empty and str(check.iloc[0]["supplier_vendor_id"]) != str(vendor):
-                    raise DataAccessError("Purchase order vendor must match the selected contract supplier.")
         elif table == "fact_energy_bill":
             account = values.get("utility_account_id")
             if account:
