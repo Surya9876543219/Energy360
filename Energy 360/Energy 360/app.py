@@ -2335,7 +2335,7 @@ def render_budgets_savings():
             total_budget = float(comparison["budget_amount"].fillna(0).sum())
             total_actual = float(comparison["actual_cost"].fillna(0).sum())
             metric_row([
-                ("Approved Budget", fmt_usd(total_budget), None),
+                ("Budget Total", fmt_usd(total_budget), None),
                 ("Actual Cost", fmt_usd(total_actual), None),
                 ("Remaining / (Overrun)", fmt_usd(total_budget-total_actual), None),
                 ("Budget Utilization", f"{total_actual/total_budget*100:,.1f}%" if total_budget else "—", None),
@@ -2399,8 +2399,8 @@ def render_budgets_savings():
                 notes = st.text_area("Notes")
                 submitted = st.form_submit_button("Save Initiative", type="primary")
                 if submitted:
-                    if not initiative_name.strip() or target_savings <= 0 or realized_savings > target_savings:
-                        st.error("Enter an initiative name and positive target; realized savings cannot exceed target.")
+                    if not initiative_name.strip() or target_savings <= 0:
+                        st.error("Enter an initiative name and a positive target savings amount.")
                     else:
                         try:
                             data_client().create_savings_initiative(property_id, initiative_name, category,
