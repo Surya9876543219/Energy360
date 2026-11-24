@@ -3491,10 +3491,10 @@ def render_energy360_ai_assistant(page, start_d=None, end_d=None, state="All US"
             for idx, item in enumerate(visible_messages):
                 with st.chat_message(item.get("role", "assistant")):
                     st.markdown(item.get("content", ""))
-                    if item.get("role") == "assistant" and item.get("route_to"):
+                    if item.get("role") == "assistant" and item.get("route_to") and item.get("route_to") != page:
                         target = item["route_to"]
                         st.button(
-                            f"Open {target}",
+                            f"Go to {target}",
                             key=f"energy360_ai_route_{idx}_{target}",
                             on_click=_choose_page,
                             args=(target,),
@@ -3511,6 +3511,8 @@ def render_energy360_ai_assistant(page, start_d=None, end_d=None, state="All US"
                     st.session_state["energy360_ai_messages"].append({
                         "role": "assistant", "content": result["answer"], "route_to": result["route_to"]
                     })
+                    if result["route_to"] and result["route_to"] != page:
+                        st.session_state["active_energy_page"] = result["route_to"]
                 except Exception as exc:
                     st.session_state["energy360_ai_messages"].append({
                         "role": "assistant", "content": "I couldn't reach the AI service. " + str(exc)
