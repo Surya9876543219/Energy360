@@ -1073,6 +1073,17 @@ def render_crud_entity(entity, title, property_id):
         flex-basis:88px !important; width:88px !important;
         min-width:88px !important; max-width:88px !important;
       }}
+      .st-key-{grid_key} .crud-header-cell {{
+        box-sizing:border-box !important; display:flex !important;
+        align-items:center !important; min-height:48px !important;
+        padding:7px 10px !important; border-right:1px solid #E5EDF4 !important;
+        font-size:13px !important; font-weight:650 !important;
+        line-height:1.25 !important; white-space:normal !important;
+        overflow-wrap:anywhere !important; word-break:normal !important;
+      }}
+      .st-key-{grid_key} .crud-header-cell span {{
+        display:block !important; width:100% !important;
+      }}
       .st-key-{grid_key} [data-testid="stMarkdownContainer"] p {{
         margin:0 !important; white-space:nowrap !important;
         overflow:hidden !important; text-overflow:ellipsis !important;
@@ -1088,13 +1099,19 @@ def render_crud_entity(entity, title, property_id):
     """, unsafe_allow_html=True)
 
     with st.container(key=grid_key):
-        header = st.columns(widths, gap="small", vertical_alignment="center")
-        for idx, col_name in enumerate(visible):
-            with header[idx]:
-                st.markdown(
-                    f'<div style="box-sizing:border-box;width:{data_width-20}px;min-height:42px;display:flex;align-items:center;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.2;font-weight:650;padding:3px 0;">{html.escape(col_name.replace("_", " ").title())}</div>',
-                    unsafe_allow_html=True,
-                )
+        # Render the header as one fixed-width HTML row so header cells cannot
+        # collapse together or inherit Streamlit column sizing.
+        header_cells = "".join(
+            f'<div class="crud-header-cell" style="flex:0 0 {data_width}px;width:{data_width}px;min-width:{data_width}px;">'
+            f'<span title="{html.escape(col_name.replace("_", " ").title(), quote=True)}">'
+            f'{html.escape(col_name.replace("_", " ").title())}</span></div>'
+            for col_name in visible
+        )
+        st.markdown(
+            f'<div class="crud-header-row" style="display:flex;flex-wrap:nowrap;width:max-content;min-width:100%;border-bottom:1px solid #E5EDF4;">'
+            f'{header_cells}<div style="flex:0 0 88px;width:88px;"></div><div style="flex:0 0 88px;width:88px;"></div></div>',
+            unsafe_allow_html=True,
+        )
 
         for _, record in rows.iterrows():
             record_id = str(record[key_col])
