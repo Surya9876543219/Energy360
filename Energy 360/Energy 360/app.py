@@ -2456,6 +2456,14 @@ def render_budgets_savings():
             monthly_actual = pd.DataFrame(columns=["Month", "Actual Cost"])
             if not actual.empty:
                 actual_trend = actual.dropna(subset=["period_start_date"]).copy()
+                if not actual_trend.empty and not budget_rows.empty:
+                    budget_starts = pd.to_datetime(budget_rows["period_start_date"], errors="coerce").dropna()
+                    budget_ends = pd.to_datetime(budget_rows["period_end_date"], errors="coerce").dropna()
+                    if not budget_starts.empty and not budget_ends.empty:
+                        actual_trend = actual_trend[
+                            (actual_trend["period_start_date"] >= budget_starts.min())
+                            & (actual_trend["period_start_date"] <= budget_ends.max())
+                        ]
                 if not actual_trend.empty:
                     actual_trend["Month"] = actual_trend["period_start_date"].dt.to_period("M").dt.to_timestamp()
                     monthly_actual = actual_trend.groupby("Month", as_index=False)["cost_amount"].sum()
