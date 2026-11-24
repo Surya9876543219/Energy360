@@ -881,6 +881,10 @@ class EnergyData:
         if property_id and (parent == "dim_property" or "property_id" in [c["name"] for c in self.crud_columns_for_table(parent)]):
             scope = f" WHERE property_id={self._sql_string(property_id)}"
         df = self.query(f"SELECT {parent_key}, {label} FROM {self.qschema}.{parent}{scope} ORDER BY {label} LIMIT 2000")
+        if df.empty:
+            return []
+        return [(str(row[parent_key]), str(row[label] if pd.notna(row[label]) else row[parent_key]))
+                for _, row in df.iterrows()]
 
     def crud_columns_for_table(self, table):
         if table not in {v[0] for v in self.CRUD_TABLES.values()} and table not in {
@@ -891,10 +895,6 @@ class EnergyData:
         return [{"name": str(r.iloc[0]).strip(), "type": str(r.iloc[1]).strip().lower()}
                 for _, r in rows.iterrows()
                 if str(r.iloc[0]).strip() and not str(r.iloc[0]).strip().startswith("#")]
-        if df.empty:
-            return []
-        return [(str(row[parent_key]), str(row[label] if pd.notna(row[label]) else row[parent_key]))
-                for _, row in df.iterrows()]
 
     def _crud_literal(self, value, dtype):
         if value is None or (isinstance(value, float) and pd.isna(value)) or value == "":
