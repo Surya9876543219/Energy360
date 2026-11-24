@@ -355,6 +355,50 @@ class EnergyData:
         """)
 
 
+    def property_energy_portfolio_data(self):
+        q=self.qschema
+        return self.query(f"""
+            SELECT p.property_id, p.property_name, p.city, p.state_code,
+                   p.gross_area_sqft,
+                   COALESCE(SUM(CASE WHEN LOWER(c.commodity_name) NOT LIKE '%water%'
+                                     THEN u.usage_quantity ELSE 0 END),0) AS energy_usage,
+                   COALESCE(SUM(CASE WHEN LOWER(c.commodity_name) LIKE '%water%'
+                                     THEN u.usage_quantity ELSE 0 END),0) AS water_usage,
+                   COALESCE(SUM(u.emissions_kg_co2e),0) / 1000.0 AS emissions_tco2e,
+                   COALESCE(SUM(u.cost_amount),0) AS energy_cost_usd,
+                   COUNT(DISTINCT u.commodity_id) AS commodity_count
+            FROM {q}.dim_property p
+            LEFT JOIN {q}.fact_property_energy_usage u ON p.property_id=u.property_id
+            LEFT JOIN {q}.dim_commodity c ON u.commodity_id=c.commodity_id
+            GROUP BY p.property_id,p.property_name,p.city,p.state_code,p.gross_area_sqft
+            ORDER BY p.property_name
+        """)
+
+    def property_budget_portfolio_data(self):
+        q=self.qschema
+        return self.query(f"""
+            SELECT p.property_id,p.property_name,p.city,p.state_code,
+                   b.budget_id,b.budget_name,b.fiscal_year,b.commodity_id,
+                   b.period_start_date,b.period_end_date,b.budget_amount,
+                   b.currency_code,b.approval_status
+            FROM {q}.fact_property_energy_budget b
+            JOIN {q}.dim_property p ON b.property_id=p.property_id
+            ORDER BY p.property_name,b.period_start_date DESC,b.budget_name
+        """)
+
+    def property_savings_portfolio_data(self):
+        q=self.qschema
+        return self.query(f"""
+            SELECT p.property_id,p.property_name,p.city,p.state_code,
+                   i.initiative_id,i.initiative_name,i.initiative_category,
+                   i.target_savings_amount,i.realized_savings_amount,
+                   i.currency_code,i.initiative_status,i.start_date,
+                   i.target_completion_date
+            FROM {q}.fact_property_savings_initiative i
+            JOIN {q}.dim_property p ON i.property_id=p.property_id
+            ORDER BY p.property_name,i.created_at DESC
+        """)
+
     def property_compliance_obligations(self, property_id):
         q=self.qschema; pid=self._sql_string(property_id)
         return self.query(f"""
