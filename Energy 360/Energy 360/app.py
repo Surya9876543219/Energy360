@@ -2656,21 +2656,78 @@ def render_budgets_savings():
         if initiatives.empty:
             st.info("No savings initiatives match the selected filters.")
         else:
-            st.subheader("Target vs Realized by Property")
-            by_property = initiatives.groupby("property_name",as_index=False).agg(
-                target_savings=("target_savings_amount","sum"),
-                realized_savings=("realized_savings_amount","sum")
+            st.subheader("Monthly Target vs Realized Savings")
+            st.caption(
+                "Monthly trend is phased from each initiative's cumulative target and realized amounts "
+                "across its active period. It is an estimated allocation, not measured monthly savings; "
+                "use monthly measurement records when available for verified reporting."
             )
-            property_long = by_property.melt(id_vars="property_name",
-                value_vars=["target_savings","realized_savings"],var_name="measure",value_name="amount")
-            property_long["measure"] = property_long["measure"].map(
-                {"target_savings":"Target Savings","realized_savings":"Realized Savings"})
-            fig = px.bar(property_long,x="property_name",y="amount",color="measure",barmode="group",
-                labels={"property_name":"Property","amount":"Savings (USD)","measure":"Comparison"},
-                title="Target vs Realized Savings by Property")
-            fig.update_layout(height=340,paper_bgcolor="white",plot_bgcolor="white",
-                margin=dict(l=10,r=10,t=50,b=10),legend_title_text="")
-            st.plotly_chart(fig,use_container_width=True,key="savings_property_comparison")
+            monthly_rows = []
+            trend_today = pd.Timestamp.now().normalize()
+            for _, initiative in initiatives.iterrows():
+                start = pd.to_datetime(initiative.get("start_date"), errors="coerce")
+                finish = pd.to_datetime(initiative.get("target_completion_date"), errors="coerce")
+                target_amount = float(pd.to_numeric(
+                    pd.Series([initiative.get("target_savings_amount")]), errors="coerce"
+                ).fillna(0).iloc[0])
+                realized_amount = float(pd.to_numeric(
+                    pd.Series([initiative.get("realized_savings_amount")]), errors="coerce"
+                ).fillna(0).iloc[0])
+                if pd.isna(start):
+                    continue
+                start_month = start.to_period("M").to_timestamp()
+                end_month = (finish.to_period("M").to_timestamp()
+                             if pd.notna(finish) and finish >= start
+                             else trend_today.to_period("M").to_timestamp())
+                target_months = pd.date_range(start_month, end_month, freq="MS")
+                if len(target_months) == 0:
+                    continue
+                target_per_month = target_amount / len(target_months)
+                elapsed_end = min(end_month, trend_today.to_period("M").to_timestamp())
+                realized_months = pd.date_range(start_month, elapsed_end, freq="MS")
+                realized_per_month = realized_amount / len(realized_months) if len(realized_months) else 0.0
+                for month in target_months:
+                    monthly_rows.append({
+                        "Month": month,
+                        "Target Savings": target_per_month,
+                        "Realized Savings": realized_per_month if month in realized_months else 0.0,
+                    })
+            if monthly_rows:
+                monthly_savings = pd.DataFrame(monthly_rows).groupby("Month", as_index=False)[
+                    ["Target Savings", "Realized Savings"]
+                ].sum().sort_values("Month")
+                fig = px.line(
+                    monthly_savings, x="Month",
+                    y=["Target Savings", "Realized Savings"],
+                    markers=True,
+                    labels={"value": "Savings (USD)", "Month": "Month", "variable": "Measure"},
+                    title="Monthly Target vs Realized Savings",
+                )
+                fig.update_layout(
+                    height=370, paper_bgcolor="white", plot_bgcolor="white",
+                    margin=dict(l=10, r=10, t=50, b=15), legend_title_text="",
+                )
+                fig.update_traces(line_width=3, marker_size=7)
+                fig.update_yaxes(title="Savings (USD)", gridcolor="#E7EEF4", tickprefix="$")
+                fig.update_xaxes(title="", tickformat="%b %Y")
+                st.plotly_chart(
+                    format_plotly_numbers(fig), use_container_width=True,
+                    key="savings_monthly_trend",
+                )
+                monthly_display = monthly_savings.copy()
+                monthly_display["Month"] = monthly_display["Month"].dt.strftime("%b %Y")
+                for amount_col in ["Target Savings", "Realized Savings"]:
+                    monthly_display[amount_col] = monthly_display[amount_col].round(2)
+                st.dataframe(monthly_display, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download Monthly Savings Trend CSV",
+                    monthly_display.to_csv(index=False).encode("utf-8"),
+                    file_name="energy360_monthly_savings_trend.csv",
+                    mime="text/csv",
+                    key="download_monthly_savings_trend",
+                )
+            else:
+                st.info("Monthly savings trend cannot be calculated because initiative start dates are missing.")
 
             st.subheader("Savings by Initiative Category")
             by_category = initiatives.groupby("initiative_category",as_index=False).agg(
