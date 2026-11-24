@@ -354,6 +354,94 @@ class EnergyData:
             ORDER BY u.period_start_date,c.commodity_name,m.meter_number
         """)
 
+
+    def property_compliance_obligations(self, property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT o.obligation_id, s.standard_name, s.jurisdiction_level,
+                   s.jurisdiction_name, s.program_type, s.metric_name, s.metric_unit,
+                   s.threshold_operator, s.threshold_value, o.reporting_frequency,
+                   o.reporting_start_date, o.reporting_end_date, o.compliance_status,
+                   o.responsible_owner, o.next_submission_due_date, s.source_url
+            FROM {q}.bridge_property_compliance_obligation o
+            JOIN {q}.dim_compliance_standard s ON o.standard_id=s.standard_id
+            WHERE o.property_id={pid}
+            ORDER BY o.next_submission_due_date, s.standard_name
+        """)
+
+    def property_compliance_reports(self, property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT report_id, obligation_id, reporting_period_start, reporting_period_end,
+                   energy_use_value, energy_use_unit, water_use_value, water_use_unit,
+                   emissions_tco2e, energy_use_intensity, water_use_intensity,
+                   report_status, submission_date, submission_reference
+            FROM {q}.fact_property_compliance_report
+            WHERE property_id={pid}
+            ORDER BY reporting_period_end DESC
+        """)
+
+    def property_budget_data(self, property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT budget_id, budget_name, fiscal_year, commodity_id, period_start_date,
+                   period_end_date, budget_amount, currency_code, approval_status,
+                   approved_by, notes
+            FROM {q}.fact_property_energy_budget
+            WHERE property_id={pid}
+            ORDER BY period_start_date DESC, budget_name
+        """)
+
+    def property_savings_data(self, property_id):
+        q=self.qschema; pid=self._sql_string(property_id)
+        return self.query(f"""
+            SELECT initiative_id, initiative_name, initiative_category,
+                   target_savings_amount, realized_savings_amount, currency_code,
+                   target_energy_savings, realized_energy_savings, energy_unit,
+                   initiative_status, start_date, target_completion_date, notes, created_at
+            FROM {q}.fact_property_savings_initiative
+            WHERE property_id={pid}
+            ORDER BY created_at DESC
+        """)
+
+    def create_property_budget(self, property_id, budget_name, fiscal_year,
+                               commodity_id, period_start, period_end, budget_amount):
+        q=self.qschema
+        pid=self._sql_string(property_id); name=self._sql_string(budget_name)
+        commodity="NULL" if commodity_id is None else self._sql_string(commodity_id)
+        amount=float(budget_amount)
+        if amount <= 0 or period_end < period_start:
+            raise DataAccessError("Budget amount and reporting period are invalid.")
+        self.execute(f"""
+            INSERT INTO {q}.fact_property_energy_budget
+            (budget_id, property_id, budget_name, fiscal_year, commodity_id,
+             period_start_date, period_end_date, budget_amount, currency_code,
+             approval_status, created_at, updated_at)
+            VALUES (uuid(), {pid}, {name}, {int(fiscal_year)}, {commodity},
+                    DATE'{period_start.isoformat()}', DATE'{period_end.isoformat()}',
+                    {amount}, 'USD', 'Draft', current_timestamp(), current_timestamp())
+        """)
+        return True
+
+    def create_savings_initiative(self, property_id, initiative_name, category,
+                                  target_savings, realized_savings, status, notes):
+        q=self.qschema
+        pid=self._sql_string(property_id); name=self._sql_string(initiative_name)
+        cat=self._sql_string(category); state=self._sql_string(status)
+        note="NULL" if not notes else self._sql_string(notes)
+        target=float(target_savings); realized=float(realized_savings)
+        if target <= 0 or realized < 0 or realized > target:
+            raise DataAccessError("Savings values are invalid.")
+        self.execute(f"""
+            INSERT INTO {q}.fact_property_savings_initiative
+            (initiative_id, property_id, initiative_name, initiative_category,
+             target_savings_amount, realized_savings_amount, currency_code,
+             initiative_status, notes, created_at, updated_at)
+            VALUES (uuid(), {pid}, {name}, {cat}, {target}, {realized}, 'USD',
+                    {state}, {note}, current_timestamp(), current_timestamp())
+        """)
+        return True
+
     def property_meter_data(self,property_id):
         q=self.qschema; pid=self._sql_string(property_id)
         return self.query(f"""
