@@ -1034,18 +1034,14 @@ def render_crud_entity(entity, title, property_id):
         st.caption(f"No {title.lower()} records found.")
         return
 
-    # Render a compact table-like list: all record fields stay on one line,
-    # with Edit and Delete actions aligned in the final columns.
-    display_cols = [c for c in rows.columns if c != key_col]
-    if not display_cols:
-        display_cols = [key_col]
-    visible = display_cols[:5]
-    column_labels = [c.replace("_", " ").title() for c in visible]
-    widths = [2.0] * len(visible) + [0.72, 0.82]
+    # Show every available field in the record grid, followed by row actions.
+    # The full-width grid preserves the original table-like presentation.
+    visible = list(rows.columns)
+    widths = [2.0] * len(visible) + [0.78, 0.86]
     header_cells = st.columns(widths, vertical_alignment="center")
-    for idx, label in enumerate(column_labels):
+    for idx, col_name in enumerate(visible):
         with header_cells[idx]:
-            st.markdown(f"**{label}**")
+            st.markdown(f"**{col_name.replace('_', ' ').title()}**")
     with header_cells[-2]:
         st.markdown("**Edit**")
     with header_cells[-1]:
@@ -1064,7 +1060,7 @@ def render_crud_entity(entity, title, property_id):
                     value = value.strftime("%Y-%m-%d")
                 else:
                     value = str(value)
-                st.write(value[:55])
+                st.write(value)
         edit_key = f"crud_edit_row_{entity}_{property_id}_{record_id}"
         delete_key = f"crud_delete_row_{entity}_{property_id}_{record_id}"
         with cells[-2]:
