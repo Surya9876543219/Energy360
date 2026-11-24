@@ -1656,8 +1656,20 @@ def render_dashboard(start_d, end_d, state):
 
     # Portfolio KPI calculations.
     water_mask = energy["commodity_name"].astype(str).str.contains("water", case=False, na=False) if not energy.empty else pd.Series(dtype=bool)
-    energy_usage = float(energy.loc[~water_mask, "usage_quantity"].sum()) if not energy.empty else 0.0
-    water_usage = float(energy.loc[water_mask, "usage_quantity"].sum()) if not energy.empty else 0.0
+    def usage_by_unit(frame):
+        if frame.empty:
+            return "No records"
+        unit_col = "usage_unit" if "usage_unit" in frame.columns else None
+        if not unit_col:
+            return f"{len(frame):,} records"
+        grouped = (frame.assign(_unit=frame[unit_col].fillna("Unit not specified").astype(str))
+                   .groupby("_unit")["usage_quantity"].sum().sort_values(ascending=False))
+        parts = [f"{value:,.0f} {unit}" for unit, value in grouped.head(2).items()]
+        if len(grouped) > 2:
+            parts.append(f"+{len(grouped)-2} more units")
+        return " · ".join(parts)
+    energy_usage_display = usage_by_unit(energy.loc[~water_mask] if not energy.empty else energy)
+    water_usage_display = usage_by_unit(energy.loc[water_mask] if not energy.empty else energy)
     energy_cost = float(energy["cost_amount"].sum()) if not energy.empty else 0.0
     emissions_tonnes = float(energy["emissions_kg_co2e"].sum()) / 1000 if not energy.empty else 0.0
     realized_savings = float(pd.to_numeric(savings.get("realized_savings_amount", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()) if not savings.empty else 0.0
@@ -1684,10 +1696,11 @@ def render_dashboard(start_d, end_d, state):
             trend = energy.dropna(subset=["period_start_date"]).copy()
             trend["Month"] = trend["period_start_date"].dt.to_period("M").dt.to_timestamp()
             trend = trend.loc[~trend["commodity_name"].astype(str).str.contains("water", case=False, na=False)]
-            trend = trend.groupby(["Month", "commodity_name"], as_index=False)["usage_quantity"].sum()
+            trend["series"] = trend["commodity_name"].fillna("Unclassified").astype(str) + " (" + trend["usage_unit"].fillna("unit").astype(str) + ")"
+            trend = trend.groupby(["Month", "series"], as_index=False)["usage_quantity"].sum()
             if not trend.empty:
-                fig = px.line(trend, x="Month", y="usage_quantity", color="commodity_name", markers=True,
-                              labels={"usage_quantity":"Usage","Month":"Month","commodity_name":"Commodity"})
+                fig = px.line(trend, x="Month", y="usage_quantity", color="series", markers=True,
+                              labels={"usage_quantity":"Usage (commodity-specific unit)","Month":"Month","series":"Commodity / Unit"})
                 fig.update_layout(height=330, margin=dict(l=8,r=8,t=20,b=8), paper_bgcolor="white", plot_bgcolor="white", legend_title_text="")
                 fig.update_yaxes(gridcolor="#E7EEF4")
                 fig.update_xaxes(tickformat="%b %Y")
