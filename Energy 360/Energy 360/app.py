@@ -1116,11 +1116,12 @@ def render_crud_entity(entity, title, property_id):
                     f'<div style="width:{data_width-20}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:650;">{html.escape(col_name.replace("_", " ").title())}</div>',
                     unsafe_allow_html=True,
                 )
-        for _, table_record in rows.iterrows():
-            rid = str(table_record[key_col])
+
+        for _, record in rows.iterrows():
+            record_id = str(record[key_col])
             cells = st.columns(widths, gap="small", vertical_alignment="center")
             for idx, col_name in enumerate(visible):
-                raw_value = table_record.get(col_name)
+                raw_value = record.get(col_name)
                 if pd.isna(raw_value):
                     display_value = "—"
                 elif isinstance(raw_value, pd.Timestamp):
@@ -1133,26 +1134,25 @@ def render_crud_entity(entity, title, property_id):
                         unsafe_allow_html=True,
                     )
             with cells[-2]:
-                if st.button("Edit", key=f"crud_edit_row_{entity}_{property_id}_{rid}", use_container_width=True):
-                    st.session_state[f"crud_active_edit_{entity}_{property_id}"] = rid
+                if st.button("Edit", key=f"crud_edit_row_{entity}_{property_id}_{record_id}", use_container_width=True):
+                    st.session_state[f"crud_active_edit_{entity}_{property_id}"] = record_id
                     st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
             with cells[-1]:
-                if st.button("Delete", key=f"crud_delete_row_{entity}_{property_id}_{rid}", use_container_width=True):
-                    st.session_state[f"crud_active_delete_{entity}_{property_id}"] = rid
+                if st.button("Delete", key=f"crud_delete_row_{entity}_{property_id}_{record_id}", use_container_width=True):
+                    st.session_state[f"crud_active_delete_{entity}_{property_id}"] = record_id
                     st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
 
-                active_edit = st.session_state.get(f"crud_active_edit_{entity}_{property_id}")
-                if active_edit == rid:
-                current = table_record
-                st.markdown('<div id="crud-form"></div>', unsafe_allow_html=True)
+            # Render the selected record's editor/confirmation immediately below its row.
+            active_edit = st.session_state.get(f"crud_active_edit_{entity}_{property_id}")
+            if active_edit == record_id:
                 with st.container(border=True):
-                    st.markdown(f"**Edit {title.rstrip('s')} — {rid}**")
-                    with st.form(f"crud_edit_{entity}_{property_id}_{rid}"):
+                    st.markdown(f"**Edit {title.rstrip('s')} — {record_id}**")
+                    with st.form(f"crud_edit_{entity}_{property_id}_{record_id}"):
                         values = {}
                         for col in editable:
                             name, dtype = col["name"], col["type"]
                             label = name.replace("_", " ").title()
-                            current_value = current.get(name)
+                            current_value = record.get(name)
                             if name in rels:
                                 options = get_crud_choices(entity, name, property_id)
                                 option_ids = [x[0] for x in options]
@@ -1160,26 +1160,34 @@ def render_crud_entity(entity, title, property_id):
                                 if current_id and current_id not in option_ids:
                                     options = [(current_id, current_id)] + options
                                 options = [("", "— None —")] + options
-                                idx = next((i for i,x in enumerate(options) if x[0] == current_id), 0)
-                                chosen = st.selectbox(label, options, index=idx, format_func=lambda x: x[1],
-                                                      key=f"crud_edit_{entity}_{name}_{rid}")
+                                idx = next((i for i, x in enumerate(options) if x[0] == current_id), 0)
+                                chosen = st.selectbox(
+                                    label, options, index=idx, format_func=lambda x: x[1],
+                                    key=f"crud_edit_{entity}_{name}_{record_id}",
+                                )
                                 values[name] = chosen[0] or None
                             elif dtype == "boolean":
-                                values[name] = st.checkbox(label,
+                                values[name] = st.checkbox(
+                                    label,
                                     value=bool(current_value) if pd.notna(current_value) else False,
-                                    key=f"crud_edit_{entity}_{name}_{rid}")
+                                    key=f"crud_edit_{entity}_{name}_{record_id}",
+                                )
                             else:
                                 default = "" if pd.isna(current_value) else str(current_value)
-                                values[name] = st.text_input(label, value=default,
-                                    key=f"crud_edit_{entity}_{name}_{rid}")
+                                values[name] = st.text_input(
+                                    label, value=default,
+                                    key=f"crud_edit_{entity}_{name}_{record_id}",
+                                )
                         c1, c2 = st.columns(2)
                         with c1:
-                            submitted = st.form_submit_button("Save Changes", type="primary", use_container_width=True)
+                            submitted = st.form_submit_button(
+                                "Save Changes", type="primary", use_container_width=True
+                            )
                         with c2:
                             cancel = st.form_submit_button("Cancel", use_container_width=True)
                         if submitted:
                             try:
-                                save_crud_record(entity, values, rid)
+                                save_crud_record(entity, values, record_id)
                                 st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
                                 clear_property_crud_cache()
                                 st.success("Record updated.")
@@ -1190,17 +1198,18 @@ def render_crud_entity(entity, title, property_id):
                             st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
                             st.rerun()
 
-                active_delete = st.session_state.get(f"crud_active_delete_{entity}_{property_id}")
-                if active_delete == rid:
-                st.markdown('<div id="crud-form"></div>', unsafe_allow_html=True)
+            active_delete = st.session_state.get(f"crud_active_delete_{entity}_{property_id}")
+            if active_delete == record_id:
                 with st.container(border=True):
                     st.warning(f"Delete this {title.rstrip('s')} record? This cannot be undone.")
                     c1, c2 = st.columns(2)
                     with c1:
-                        if st.button("Confirm Delete", key=f"crud_confirm_delete_{entity}_{rid}",
-                                     type="primary", use_container_width=True):
+                        if st.button(
+                            "Confirm Delete", key=f"crud_confirm_delete_{entity}_{record_id}",
+                            type="primary", use_container_width=True,
+                        ):
                             try:
-                                delete_crud_record(entity, rid)
+                                delete_crud_record(entity, record_id)
                                 st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
                                 clear_property_crud_cache()
                                 st.success("Record deleted.")
@@ -1208,12 +1217,12 @@ def render_crud_entity(entity, title, property_id):
                             except DataAccessError as exc:
                                 st.error(f"Deletion blocked: {exc}")
                     with c2:
-                        if st.button("Cancel", key=f"crud_cancel_delete_{entity}_{rid}",
-                                     use_container_width=True):
+                        if st.button(
+                            "Cancel", key=f"crud_cancel_delete_{entity}_{record_id}",
+                            use_container_width=True,
+                        ):
                             st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
                             st.rerun()
-
-
 
 
 def fmt_k(v, digits=2):
