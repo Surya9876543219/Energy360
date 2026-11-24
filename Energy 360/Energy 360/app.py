@@ -3462,7 +3462,7 @@ def _ask_energy360_ai(page, question, history, start_d=None, end_d=None, state="
             )
     messages.append(ChatMessage(role=ChatMessageRole.USER, content=question[:2500]))
     response = WorkspaceClient().serving_endpoints.query(
-        name=endpoint, messages=messages, max_tokens=900, temperature=0.15
+        name=endpoint, messages=messages, max_tokens=900
     )
     payload = response.as_dict() if callable(getattr(response, "as_dict", None)) else response
     if not isinstance(payload, dict):
