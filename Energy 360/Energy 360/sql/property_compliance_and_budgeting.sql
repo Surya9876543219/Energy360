@@ -136,6 +136,47 @@ CREATE TABLE IF NOT EXISTS fact_property_savings_initiative (
 --  DATE'2026-01-01', DATE'2026-12-31', 'Not Started', 'Facilities Manager',
 --  DATE'2027-05-01', 'Confirm deadline with authority', current_timestamp(), current_timestamp());
 
+
+-- SYNTHETIC DEMONSTRATION RECORDS FOR ALL FIVE PROPERTIES.
+-- These are planning examples, not approved financial budgets or legal compliance claims.
+-- IDs and MERGE keys are deterministic so this block is safe to rerun.
+MERGE INTO fact_property_energy_budget t
+USING (
+  SELECT * FROM VALUES
+    ('BUD-HOU-2026','PROP-HOU-001','2026 Energy Budget - Houston Office Center',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',185000.00,'USD','Draft'),
+    ('BUD-DAL-2026','PROP-DAL-001','2026 Energy Budget - Dallas Distribution Campus',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',310000.00,'USD','Draft'),
+    ('BUD-PHX-2026','PROP-PHX-001','2026 Energy Budget - Phoenix Retail Plaza',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',114550.23,'USD','Draft'),
+    ('BUD-CHI-2026','PROP-CHI-001','2026 Energy Budget - Chicago Residential Tower',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',225000.00,'USD','Draft'),
+    ('BUD-NYC-2026','PROP-NYC-001','2026 Energy Budget - New York Business Center',2026,NULL,DATE'2026-01-01',DATE'2026-11-30',142000.00,'USD','Draft')
+  AS s(budget_id,property_id,budget_name,fiscal_year,commodity_id,period_start_date,period_end_date,budget_amount,currency_code,approval_status)
+) s ON t.budget_id=s.budget_id
+WHEN NOT MATCHED THEN INSERT
+ (budget_id,property_id,budget_name,fiscal_year,commodity_id,period_start_date,period_end_date,budget_amount,currency_code,approval_status,notes,created_at,updated_at)
+VALUES
+ (s.budget_id,s.property_id,s.budget_name,s.fiscal_year,s.commodity_id,s.period_start_date,s.period_end_date,s.budget_amount,s.currency_code,s.approval_status,
+  'Synthetic demonstration budget. Replace with approved finance data.',current_timestamp(),current_timestamp());
+
+MERGE INTO fact_property_savings_initiative t
+USING (
+  SELECT * FROM VALUES
+    ('SAV-HOU-LIGHT','PROP-HOU-001','LED Lighting Retrofit','Lighting',12000.00,2500.00,'USD','In Progress','2026-02-01',DATE'2026-12-15'),
+    ('SAV-HOU-HVAC','PROP-HOU-001','HVAC Optimization','HVAC',18000.00,4000.00,'USD','In Progress','2026-03-01',DATE'2026-12-31'),
+    ('SAV-DAL-LIGHT','PROP-DAL-001','Warehouse LED Upgrade','Lighting',22000.00,6000.00,'USD','In Progress','2026-01-15',DATE'2026-11-30'),
+    ('SAV-DAL-CONTROL','PROP-DAL-001','Building Controls Optimization','Controls',16000.00,3500.00,'USD','In Progress','2026-03-01',DATE'2026-12-31'),
+    ('SAV-PHX-SOLAR','PROP-PHX-001','Rooftop Solar Optimization','Renewables',15000.00,4200.00,'USD','In Progress','2026-01-01',DATE'2026-12-31'),
+    ('SAV-PHX-WATER','PROP-PHX-001','Water Fixture Efficiency','Water',5000.00,1800.00,'USD','In Progress','2026-02-01',DATE'2026-10-31'),
+    ('SAV-CHI-LIGHT','PROP-CHI-001','Common Area LED Upgrade','Lighting',14000.00,3200.00,'USD','In Progress','2026-02-01',DATE'2026-12-15'),
+    ('SAV-CHI-HVAC','PROP-CHI-001','Heating Controls Tuning','HVAC',19000.00,5100.00,'USD','In Progress','2026-01-15',DATE'2026-12-31'),
+    ('SAV-NYC-LIGHT','PROP-NYC-001','Office Lighting Controls','Controls',11000.00,2900.00,'USD','In Progress','2026-02-01',DATE'2026-11-30'),
+    ('SAV-NYC-HVAC','PROP-NYC-001','Chiller Plant Optimization','HVAC',24000.00,5300.00,'USD','In Progress','2026-03-01',DATE'2026-12-31')
+  AS s(initiative_id,property_id,initiative_name,initiative_category,target_savings_amount,realized_savings_amount,currency_code,initiative_status,start_date,target_completion_date)
+) s ON t.initiative_id=s.initiative_id
+WHEN NOT MATCHED THEN INSERT
+ (initiative_id,property_id,initiative_name,initiative_category,target_savings_amount,realized_savings_amount,currency_code,initiative_status,start_date,target_completion_date,notes,created_at,updated_at)
+VALUES
+ (s.initiative_id,s.property_id,s.initiative_name,s.initiative_category,s.target_savings_amount,s.realized_savings_amount,s.currency_code,s.initiative_status,s.start_date,s.target_completion_date,
+  'Synthetic demonstration initiative. Replace savings estimates with measured and verified results.',current_timestamp(),current_timestamp());
+
 -- Post-deployment checks
 SELECT 'dim_compliance_standard' AS table_name, COUNT(*) AS row_count FROM dim_compliance_standard
 UNION ALL SELECT 'bridge_property_compliance_obligation', COUNT(*) FROM bridge_property_compliance_obligation
