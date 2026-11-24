@@ -397,6 +397,96 @@ section[data-testid="stMain"] .block-container {
     margin-top: 0 !important;
 }
 
+
+/* Remove Streamlit's white top toolbar strip without losing the sidebar toggle. */
+header[data-testid="stHeader"],
+[data-testid="stHeader"] {
+    height: 0 !important;
+    min-height: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+[data-testid="stToolbar"] {
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+}
+[data-testid="stToolbar"] > div:not(:has([data-testid="stSidebarCollapseButton"])) {
+    display: none !important;
+}
+[data-testid="stToolbarActions"],
+[data-testid="stStatusWidget"],
+[data-testid="stDecoration"],
+#MainMenu,
+.stDeployButton {
+    display: none !important;
+}
+/* Keep the sidebar control visible and fixed in both expanded and collapsed states. */
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarExpandButton"] {
+    position: fixed !important;
+    top: 8px !important;
+    left: calc(var(--sidebar-width, 18rem) - 42px) !important;
+    z-index: 100020 !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+[data-testid="stSidebarCollapsedControl"] {
+    position: fixed !important;
+    top: 8px !important;
+    left: 8px !important;
+    z-index: 100020 !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stSidebarExpandButton"] button,
+[data-testid="stSidebarCollapsedControl"] button {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #FFFFFF !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 5px !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+[data-testid="stSidebarCollapseButton"] button:hover,
+[data-testid="stSidebarExpandButton"] button:hover,
+[data-testid="stSidebarCollapsedControl"] button:hover {
+    color: #FFFFFF !important;
+    background: rgba(255,255,255,0.14) !important;
+}
+[data-testid="stSidebarCollapseButton"] button svg,
+[data-testid="stSidebarExpandButton"] button svg,
+[data-testid="stSidebarCollapsedControl"] button svg,
+[data-testid="stSidebarCollapseButton"] button svg *,
+[data-testid="stSidebarExpandButton"] button svg *,
+[data-testid="stSidebarCollapsedControl"] button svg * {
+    color: #FFFFFF !important;
+    fill: #FFFFFF !important;
+    stroke: #FFFFFF !important;
+    opacity: 1 !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
