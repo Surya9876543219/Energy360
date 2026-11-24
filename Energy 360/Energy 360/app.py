@@ -1046,63 +1046,42 @@ def render_crud_entity(entity, title, property_id):
     st.markdown(f"""
     <style>
       .st-key-{grid_key} {{
-        display:block !important;
-        position:relative !important;
-        width:100% !important;
-        max-width:100% !important;
-        overflow-x:auto !important;
-        overflow-y:hidden !important;
-        scrollbar-width:auto !important;
-        padding-bottom:8px !important;
+        display:block !important; position:relative !important;
+        width:100% !important; max-width:100% !important;
+        overflow-x:auto !important; overflow-y:hidden !important;
+        scrollbar-width:auto !important; padding-bottom:8px !important;
       }}
       .st-key-{grid_key} > div,
-      .st-key-{grid_key} [data-testid="stVerticalBlock"] {{
-        width:max-content !important;
-        min-width:100% !important;
-        max-width:none !important;
-        display:flex !important;
-        flex-direction:column !important;
-        gap:0 !important;
+      .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] {{
+        width:max-content !important; min-width:100% !important;
+        max-width:none !important; display:flex !important;
+        flex-direction:column !important; gap:0 !important;
       }}
-      .st-key-{grid_key} [data-testid="stHorizontalBlock"] {{
-        display:flex !important;
-        flex-wrap:nowrap !important;
-        align-items:center !important;
-        justify-content:flex-start !important;
-        width:max-content !important;
-        min-width:100% !important;
-        max-width:none !important;
-        gap:0 !important;
-        border-bottom:1px solid #E5EDF4 !important;
-        padding:0 !important;
+      .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] {{
+        display:flex !important; flex-wrap:nowrap !important;
+        align-items:center !important; justify-content:flex-start !important;
+        width:max-content !important; min-width:100% !important;
+        max-width:none !important; gap:0 !important;
+        border-bottom:1px solid #E5EDF4 !important; padding:0 !important;
       }}
-      .st-key-{grid_key} [data-testid="column"] {{
-        flex:0 0 {data_width}px !important;
-        width:{data_width}px !important;
-        min-width:{data_width}px !important;
-        max-width:{data_width}px !important;
+      .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="column"] {{
+        flex:0 0 {data_width}px !important; width:{data_width}px !important;
+        min-width:{data_width}px !important; max-width:{data_width}px !important;
         padding:8px 10px !important;
       }}
-      .st-key-{grid_key} [data-testid="column"]:nth-last-child(2),
-      .st-key-{grid_key} [data-testid="column"]:last-child {{
-        flex-basis:88px !important;
-        width:88px !important;
-        min-width:88px !important;
-        max-width:88px !important;
+      .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-last-child(-n+2) {{
+        flex-basis:88px !important; width:88px !important;
+        min-width:88px !important; max-width:88px !important;
       }}
       .st-key-{grid_key} [data-testid="stMarkdownContainer"] p {{
-        margin:0 !important;
-        white-space:nowrap !important;
-        overflow:hidden !important;
-        text-overflow:ellipsis !important;
+        margin:0 !important; white-space:nowrap !important;
+        overflow:hidden !important; text-overflow:ellipsis !important;
         font-size:13px !important;
       }}
       .st-key-{grid_key} [data-testid="stButton"] {{ margin:0 !important; }}
       .st-key-{grid_key} [data-testid="stButton"] button {{
-        width:100% !important;
-        min-width:68px !important;
-        min-height:34px !important;
-        padding:5px 7px !important;
+        width:100% !important; min-width:68px !important;
+        min-height:34px !important; padding:5px 7px !important;
         white-space:nowrap !important;
       }}
     </style>
@@ -1113,7 +1092,7 @@ def render_crud_entity(entity, title, property_id):
         for idx, col_name in enumerate(visible):
             with header[idx]:
                 st.markdown(
-                    f'<div style="width:{data_width-20}px;white-space:normal;overflow-wrap:anywhere;line-height:1.25;font-weight:650;">{html.escape(col_name.replace("_", " ").title())}</div>',
+                    f'<div style="width:{data_width-20}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:650;">{html.escape(col_name.replace("_", " ").title())}</div>',
                     unsafe_allow_html=True,
                 )
 
