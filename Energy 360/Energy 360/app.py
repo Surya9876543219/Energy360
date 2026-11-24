@@ -1848,10 +1848,7 @@ def render_contract_portfolio():
         )
 
 def render_property_energy_management():
-    page_heading(
-        "Property Energy Management",
-        "Property-level energy usage, meters, utility accounts, suppliers, rate details, contracts and procurement.",
-    )
+    # The global hero banner already displays the page title and description.
     try:
         properties = get_property_list()
     except DataAccessError as exc:
@@ -1876,9 +1873,33 @@ def render_property_energy_management():
     default_id = st.session_state.get("selected_energy_property", property_ids[0])
     if default_id not in property_ids:
         default_id = property_ids[0]
+
+    # Search across property name, city, state and property ID.
+    search_text = st.text_input(
+        "Search property",
+        placeholder="Type a property name, city, state or property ID...",
+        key="property_energy_search",
+    ).strip().lower()
+
+    if search_text:
+        searchable = properties.astype(str).apply(
+            lambda column: column.str.lower().str.contains(search_text, na=False, regex=False)
+        ).any(axis=1)
+        filtered_ids = properties.loc[searchable, "property_id"].astype(str).tolist()
+    else:
+        filtered_ids = property_ids
+
+    if not filtered_ids:
+        st.warning("No properties match your search. Try another property name, city or ID.")
+        return
+
+    selected_default = default_id if default_id in filtered_ids else filtered_ids[0]
     selected_id = st.selectbox(
-        "Select property", property_ids, index=property_ids.index(default_id),
-        format_func=property_label, key="property_energy_selector",
+        "Choose property",
+        filtered_ids,
+        index=filtered_ids.index(selected_default),
+        format_func=property_label,
+        key="property_energy_selector",
     )
     st.session_state["selected_energy_property"] = selected_id
     prop = properties.loc[properties["property_id"].astype(str) == selected_id].iloc[0]
