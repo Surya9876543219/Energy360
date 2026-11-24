@@ -1033,8 +1033,10 @@ def render_crud_entity(entity, title, property_id):
                     st.error(f"Could not create record: {exc}")
 
     if rows.empty:
-        st.caption(f"No {t    # Resolve row actions from the table links. This avoids squeezing Streamlit
-    # columns into a fake grid and lets the HTML table scroll as one real table.
+        st.caption(f"No {title.lower()} records found.")
+        return
+
+    # Render a real scrollable table so all fields stay in one row.
     action = st.query_params.get("crud_action", "")
     action_entity = st.query_params.get("crud_entity", "")
     action_property = st.query_params.get("crud_property", "")
@@ -1046,7 +1048,6 @@ def render_crud_entity(entity, title, property_id):
         elif action == "delete":
             st.session_state[f"crud_active_delete_{entity}_{property_id}"] = action_record
             st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
-        # Consume the URL action once; session state keeps the selected row active.
         st.query_params.clear()
 
     visible = list(rows.columns)
@@ -1085,32 +1086,12 @@ def render_crud_entity(entity, title, property_id):
 
     table_html = f"""
     <style>
-      .crud-table-wrap {{
-        width: 100%; max-width: 100%; overflow-x: auto; overflow-y: hidden;
-        border: 1px solid #DCE6EF; border-radius: 8px;
-        background: #FFFFFF;
-      }}
-      table.crud-table {{
-        border-collapse: collapse; width: max-content; min-width: 100%;
-        table-layout: auto; white-space: nowrap; font-size: 13px;
-        color: #17324D;
-      }}
-      .crud-table th, .crud-table td {{
-        padding: 10px 12px; text-align: left; border-bottom: 1px solid #E5EDF4;
-        min-width: 105px; max-width: 320px;
-      }}
-      .crud-table th {{
-        position: sticky; top: 0; background: #F7F9FC;
-        font-weight: 650; color: #173A59;
-      }}
-      .crud-table tr:last-child td {{ border-bottom: 0; }}
-      .crud-table td.crud-action {{ min-width: 76px; width: 76px; padding: 8px; }}
-      .crud-table td.crud-action a {{
-        display: inline-block; min-width: 60px; padding: 7px 10px;
-        text-align: center; text-decoration: none; color: #173A59;
-        background: #FFFFFF; border: 1px solid #D7DEE7; border-radius: 7px;
-      }}
-      .crud-table td.crud-action a:hover {{ background: #F0F5FA; }}
+      .crud-table-wrap {{ width:100%; max-width:100%; overflow-x:auto; overflow-y:hidden; background:#FFFFFF; }}
+      table.crud-table {{ border-collapse:collapse; width:max-content; min-width:100%; white-space:nowrap; font-size:13px; color:#17324D; }}
+      .crud-table th,.crud-table td {{ padding:10px 12px; text-align:left; border-bottom:1px solid #E5EDF4; min-width:105px; max-width:320px; }}
+      .crud-table th {{ background:#F7F9FC; font-weight:650; color:#173A59; }}
+      .crud-table td.crud-action {{ min-width:76px; width:76px; padding:8px; }}
+      .crud-table td.crud-action a {{ display:inline-block; min-width:60px; padding:7px 10px; text-align:center; text-decoration:none; color:#173A59; background:#FFFFFF; border:1px solid #D7DEE7; border-radius:7px; }}
     </style>
     <div class="crud-table-wrap">
       <table class="crud-table">
