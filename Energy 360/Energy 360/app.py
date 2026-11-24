@@ -1078,10 +1078,10 @@ def render_crud_entity(entity, title, property_id):
         edit_url = "?" + urlencode({**action_params, "crud_action": "edit"})
         delete_url = "?" + urlencode({**action_params, "crud_action": "delete"})
         cells_html.append(
-            f'<td class="crud-action"><a href="{html.escape(edit_url, quote=True)}">Edit</a></td>'
+            f'<td class="crud-action"><a href="{html.escape(edit_url, quote=True)}" target="_self">Edit</a></td>'
         )
         cells_html.append(
-            f'<td class="crud-action"><a href="{html.escape(delete_url, quote=True)}">Delete</a></td>'
+            f'<td class="crud-action"><a href="{html.escape(delete_url, quote=True)}" target="_self">Delete</a></td>'
         )
         body_html.append("<tr>" + "".join(cells_html) + "</tr>")
 
