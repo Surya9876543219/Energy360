@@ -1032,7 +1032,7 @@ def render_crud_entity(entity, title, property_id):
                 label = name.replace("_", " ").title()
                 current_value = current.get(name)
                 if name in rels:
-                    options = get_crud_choices(entity, name)
+                    options = get_crud_choices(entity, name, property_id)
                     option_ids = [x[0] for x in options]
                     current_id = str(current_value) if pd.notna(current_value) else ""
                     if current_id and current_id not in option_ids:
