@@ -1037,27 +1037,34 @@ def render_crud_entity(entity, title, property_id):
         st.caption(f"No {title.lower()} records found.")
         return
 
-    # Native Streamlit controls run inside this fragment, so row actions
-    # update only Property Operations instead of reloading the full dashboard.
+    # Keep the approved compact table-like layout. Native buttons are kept
+    # inside this fragment so selecting a row does not rerun the full dashboard.
     visible = list(rows.columns)
-    widths = [2.0] * len(visible) + [0.9, 0.9]
+    widths = [1.45] * len(visible) + [0.78, 0.88]
     st.markdown("""
     <style>
-      [class*="st-key-crud-native-grid-"] { width:100% !important; max-width:100% !important; overflow-x:auto !important; }
-      [class*="st-key-crud-native-grid-"] [data-testid="stVerticalBlock"] { gap:0 !important; }
+      [class*="st-key-crud-native-grid-"] [data-testid="stVerticalBlock"] {
+        gap: 0 !important;
+      }
       [class*="st-key-crud-native-grid-"] [data-testid="stHorizontalBlock"] {
-        width:max-content !important; min-width:max-content !important;
-        flex-wrap:nowrap !important; gap:8px !important; align-items:center !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 0.35rem !important;
+        padding: 0.28rem 0 !important;
+        border-bottom: 1px solid #E5EDF4;
       }
       [class*="st-key-crud-native-grid-"] [data-testid="column"] {
-        flex:0 0 150px !important; min-width:150px !important; width:150px !important;
+        min-width: 105px !important;
       }
-      [class*="st-key-crud-native-grid-"] [data-testid="column"]:nth-last-child(-n+2) {
-        flex:0 0 84px !important; min-width:84px !important; width:84px !important;
+      [class*="st-key-crud-native-grid-"] [data-testid="stButton"] {
+        margin: 0 !important;
       }
-      [class*="st-key-crud-native-grid-"] [data-testid="stButton"] { margin:0 !important; }
       [class*="st-key-crud-native-grid-"] [data-testid="stButton"] button {
-        min-width:78px !important; width:78px !important; white-space:nowrap !important;
+        min-width: 68px !important;
+        width: 100% !important;
+        min-height: 34px !important;
+        padding: 0.35rem 0.55rem !important;
+        white-space: nowrap !important;
       }
     </style>
     """, unsafe_allow_html=True)
@@ -1067,8 +1074,6 @@ def render_crud_entity(entity, title, property_id):
         for idx, col_name in enumerate(visible):
             with header[idx]:
                 st.markdown(f"**{col_name.replace('_', ' ').title()}**")
-        st.divider()
-
         for _, table_record in rows.iterrows():
             rid = str(table_record[key_col])
             cells = st.columns(widths, vertical_alignment="center")
@@ -1081,7 +1086,10 @@ def render_crud_entity(entity, title, property_id):
                 else:
                     display_value = str(raw_value)
                 with cells[idx]:
-                    st.write(display_value)
+                    st.markdown(
+                        f'<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
+                        unsafe_allow_html=True,
+                    )
             with cells[-2]:
                 if st.button("Edit", key=f"crud_edit_row_{entity}_{property_id}_{rid}", use_container_width=True):
                     st.session_state[f"crud_active_edit_{entity}_{property_id}"] = rid
@@ -1090,7 +1098,6 @@ def render_crud_entity(entity, title, property_id):
                 if st.button("Delete", key=f"crud_delete_row_{entity}_{property_id}_{rid}", use_container_width=True):
                     st.session_state[f"crud_active_delete_{entity}_{property_id}"] = rid
                     st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
-            st.divider()
 
     for _, record in rows.iterrows():
         record_id = str(record[key_col])
