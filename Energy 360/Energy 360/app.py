@@ -657,6 +657,111 @@ header[data-testid="stHeader"],
     opacity: 1 !important;
 }
 
+
+/* Restore the original Energy360 hero image treatment. */
+.hero-banner {
+    position: relative !important;
+    overflow: hidden !important;
+    background: linear-gradient(90deg, rgba(4,35,65,.98) 0%, rgba(7,49,83,.94) 48%, rgba(8,57,85,.45) 100%), linear-gradient(135deg,#123C5D,#0A2946) !important;
+    border-left: 5px solid #17C2D2 !important;
+    border-top: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+}
+.hero-banner:after {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    inset: 0 0 0 42% !important;
+    background-image: linear-gradient(90deg,rgba(5,35,66,.10),rgba(5,35,66,.04)), url("https://www.acer.europa.eu/sites/default/files/2024-03/ELE_KD_0.jpg") !important;
+    background-size: cover !important;
+    background-position: center 54% !important;
+    transform: none !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+}
+.hero-content { position: relative !important; z-index: 1 !important; }
+
+/* Slim white arrow only: no border, no tile, and visible at either sidebar state. */
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarExpandButton"] {
+    position: fixed !important;
+    top: 7px !important;
+    left: 258px !important;
+    width: 24px !important;
+    height: 28px !important;
+    min-width: 24px !important;
+    min-height: 28px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 100500 !important;
+    pointer-events: auto !important;
+}
+[data-testid="stSidebarCollapsedControl"] {
+    position: fixed !important;
+    top: 7px !important;
+    left: 7px !important;
+    width: 24px !important;
+    height: 28px !important;
+    min-width: 24px !important;
+    min-height: 28px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 100500 !important;
+    pointer-events: auto !important;
+}
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stSidebarExpandButton"] button,
+[data-testid="stSidebarCollapsedControl"] button {
+    width: 22px !important;
+    height: 26px !important;
+    min-width: 22px !important;
+    min-height: 26px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: #FFFFFF !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+[data-testid="stSidebarCollapseButton"] button:hover,
+[data-testid="stSidebarExpandButton"] button:hover,
+[data-testid="stSidebarCollapsedControl"] button:hover,
+[data-testid="stSidebarCollapseButton"] button:focus,
+[data-testid="stSidebarExpandButton"] button:focus,
+[data-testid="stSidebarCollapsedControl"] button:focus {
+    color: #FFFFFF !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+[data-testid="stSidebarCollapseButton"] button svg,
+[data-testid="stSidebarExpandButton"] button svg,
+[data-testid="stSidebarCollapsedControl"] button svg,
+[data-testid="stSidebarCollapseButton"] button svg *,
+[data-testid="stSidebarExpandButton"] button svg *,
+[data-testid="stSidebarCollapsedControl"] button svg * {
+    color: #FFFFFF !important;
+    fill: none !important;
+    stroke: #FFFFFF !important;
+    opacity: 1 !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
