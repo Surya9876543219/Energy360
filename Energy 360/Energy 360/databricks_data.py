@@ -721,6 +721,9 @@ class EnergyData:
     }
 
     CRUD_RELATIONSHIPS = {
+        "dim_vendor": {
+            "parent_vendor_id": ("dim_vendor", "vendor_id", "vendor_name"),
+        },
         "dim_meter": {
             "property_id": ("dim_property", "property_id", "property_name"),
             "property_service_id": ("bridge_property_commodity_service", "property_service_id", "service_location_code"),
@@ -922,6 +925,23 @@ class EnergyData:
                 found = self.query(f"SELECT COUNT(*) n FROM {self.qschema}.{parent} WHERE {parent_key}={self._crud_literal(values[col],'string')}")
                 if int(found.iloc[0]["n"]) == 0:
                     raise DataAccessError(f"Invalid relationship: {col} does not exist in {parent}.")
+
+        # Do not re-parent or re-classify a master record while dependent rows exist.
+        if record_id is not None and table in self.CRUD_CHILDREN:
+            protected_fields = {"property_id","commodity_id","utility_account_id","rate_class_id",
+                                "rate_schedule_id","contract_id","supplier_vendor_id","utility_vendor_id"}
+            current = self.query(f"SELECT * FROM {self.qschema}.{table} WHERE {key}={self._sql_string(record_id)}")
+            if not current.empty:
+                old_row = current.iloc[0]
+                for field in protected_fields.intersection(values):
+                    old_value, new_value = old_row.get(field), values.get(field)
+                    old_text = None if pd.isna(old_value) else str(old_value)
+                    new_text = None if new_value in (None,"") else str(new_value)
+                    if old_text != new_text:
+                        for child, fk in self.CRUD_CHILDREN.get(table, []):
+                            child_count = self.query(f"SELECT COUNT(*) AS n FROM {self.qschema}.{child} WHERE {fk}={self._sql_string(record_id)}")
+                            if not child_count.empty and int(child_count.iloc[0]["n"]) > 0:
+                                raise DataAccessError(f"Cannot change {field} while dependent records exist in {child}. Reassign or remove the dependent records first.")
 
         # Enforce cross-table consistency in addition to simple FK existence.
         if table == "dim_meter":
