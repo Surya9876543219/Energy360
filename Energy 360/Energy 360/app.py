@@ -1569,10 +1569,6 @@ def render_property_energy_management():
                     key=f"property_download_{selected_id}_{title.replace(' ', '_')}",
                 )
 
-    with st.expander("Property energy usage records"):
-        show_df(energy, "Property energy usage", 10000)
-
-
 # ------------------------- App entry -------------------------
 try:
     with st.spinner("Connecting to Databricks SQL Warehouse..."):
@@ -1605,10 +1601,6 @@ try:
     elif page=="Energy Cost & Trading": render_costs(start_d,end_d,state)
     elif page=="Geographical Analysis": render_geography(start_d,end_d)
     elif page=="Reports & Insights": render_reports(start_d,end_d,state)
-    with st.expander("Data source diagnostics"):
-        st.write(f"Catalog: `{CATALOG}` | Schema: `{SCHEMA}`")
-        st.write("Tables discovered:", ", ".join(available))
-        st.caption("All measures are calculated from your existing Unity Catalog fact and dimension tables. Configure the tables with US state, plant and USD-denominated sample records.")
 except DataAccessError as e:
     st.error("Could not connect to your Energy 360 data.")
     st.code(str(e))
