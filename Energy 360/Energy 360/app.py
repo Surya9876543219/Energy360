@@ -932,6 +932,12 @@ def get_property_contracts(property_id):
 def get_property_meter_contracts(property_id):
     return data_client().property_meter_contract_data(property_id)
 
+def update_contract_link(scope,link_id,contract_number,contract_name,start_date,end_date):
+    return data_client().update_contract_link(scope,link_id,contract_number,contract_name,start_date,end_date)
+
+def delete_contract_link(scope,link_id):
+    return data_client().delete_contract_link(scope,link_id)
+
 def get_contract_management_options():
     return data_client().contract_management_options()
 
@@ -1544,7 +1550,6 @@ def render_reports(start_d,end_d,state):
 
 
 def render_contract_management(property_id, meters):
-    st.subheader("Contract Management")
     scope = st.radio(
         "Contract Level", ["Property", "Meter"], horizontal=True,
         key=f"contract_scope_{property_id}",
@@ -1557,108 +1562,91 @@ def render_contract_management(property_id, meters):
     try:
         contracts = get_contract_management_data(property_id, scope)
     except DataAccessError as exc:
-        st.error("Could not load contract records. For meter contracts, confirm that bridge_meter_contract has been created.")
+        st.error("Could not load contract records. Confirm that the contract tables are deployed.")
         st.code(str(exc))
         contracts = pd.DataFrame()
 
-    if contracts.empty:
-        st.info(f"No {scope.lower()} contracts are currently linked to this property.")
-    else:
+    if not contracts.empty:
         contracts["days_remaining"] = pd.to_numeric(contracts["days_remaining"], errors="coerce")
-        expiring = contracts[
-            contracts["days_remaining"].between(0, expiry_days, inclusive="both")
-        ].copy()
+        expiring = contracts[contracts["days_remaining"].between(0, expiry_days, inclusive="both")].copy()
         st.markdown(f"**Contracts Expiring Within {expiry_days} Days**")
         if expiring.empty:
             st.success(f"No {scope.lower()} contracts are expiring within the next {expiry_days} days.")
         else:
             expiring = expiring.sort_values("days_remaining")
-            number_formats = {
-                col: fmt_k for col in expiring.select_dtypes(include=["number"]).columns
-                if col.lower() != "days_remaining"
-            }
+            number_formats = {col: fmt_k for col in expiring.select_dtypes(include=["number"]).columns
+                              if col.lower() != "days_remaining"}
             number_formats["days_remaining"] = "{:.0f}".format
-            st.dataframe(
-                expiring.style.format(number_formats, na_rep="—"),
-                use_container_width=True, hide_index=True,
-            )
+            st.dataframe(expiring.style.format(number_formats, na_rep="—"),
+                         use_container_width=True, hide_index=True)
 
-        st.markdown("**Extend Existing Contract**")
-        extendable = contracts[
-            contracts["contract_end_date"].notna()
-        ].copy()
-        if extendable.empty:
-            st.info("There are no existing contract links available to extend.")
-        else:
-            extend_labels = {
-                str(row["link_id"]): (
-                    f"{row.get('contract_number','')} | {row.get('contract_name') or 'Contract'}"
-                    f" | Ends {pd.to_datetime(row['contract_end_date']).date()}"
-                )
-                for _, row in extendable.iterrows()
-            }
-            selected_link = st.selectbox(
-                "Select Contract", list(extend_labels.keys()),
-                format_func=lambda value: extend_labels[value],
-                key=f"extend_contract_link_{property_id}_{scope}",
+        st.markdown("**Edit or Delete Contract**")
+        labels = {
+            str(row["link_id"]): (
+                f"{row.get('contract_number','')} | {row.get('contract_name') or 'Contract'} "
+                f"| {pd.to_datetime(row['contract_start_date']).date()} to "
+                f"{pd.to_datetime(row['contract_end_date']).date()}"
             )
-            selected_row = extendable[extendable["link_id"].astype(str) == str(selected_link)].iloc[0]
-            min_end = pd.Timestamp.today().date()
-            current_end = pd.to_datetime(selected_row["contract_end_date"]).date()
-            property_end = None
-            if scope == "Meter":
-                try:
-                    property_end = data_client().property_contract_end_date_for_meter(selected_link)
-                except DataAccessError as exc:
-                    st.error("Could not validate the related property contract end date.")
-                    st.code(str(exc))
-            if scope == "Meter" and property_end is None:
-                st.error(
-                    "This meter does not have a matching property-level contract for its commodity. "
-                    "Create or extend the property contract before extending this meter contract."
+            for _, row in contracts.iterrows()
+        }
+        selected_link = st.selectbox(
+            "Select contract to manage", list(labels.keys()),
+            format_func=lambda value: labels[value],
+            key=f"manage_contract_link_{property_id}_{scope}",
+        )
+        selected = contracts[contracts["link_id"].astype(str) == str(selected_link)].iloc[0]
+        with st.form(f"edit_contract_form_{property_id}_{scope}_{selected_link}"):
+            edit_number = st.text_input("Contract Number", value=str(selected.get("contract_number") or ""))
+            edit_name = st.text_input("Contract Name", value=str(selected.get("contract_name") or ""))
+            date_col1, date_col2 = st.columns(2)
+            with date_col1:
+                edit_start = st.date_input(
+                    "Contract Start Date",
+                    value=pd.to_datetime(selected["contract_start_date"]).date(),
+                    key=f"edit_contract_start_{property_id}_{scope}_{selected_link}",
                 )
-                proposed_end = current_end
-            elif scope == "Meter" and property_end <= current_end:
-                st.info(
-                    f"The related property contract ends on {property_end}. "
-                    "The meter contract cannot be extended beyond that date. "
-                    "Extend the property contract first if a longer meter term is required."
+            with date_col2:
+                edit_end = st.date_input(
+                    "Contract End Date",
+                    value=pd.to_datetime(selected["contract_end_date"]).date(),
+                    key=f"edit_contract_end_{property_id}_{scope}_{selected_link}",
                 )
-                proposed_end = current_end
-            else:
-                if scope == "Meter":
-                    st.caption(
-                        f"Validation: Meter contract end date must be on or before "
-                        f"the Property contract end date ({property_end})."
-                    )
-                proposed_end = st.date_input(
-                    "New Contract End Date",
-                    value=max(current_end, min_end),
-                    min_value=min_end,
-                    max_value=property_end if scope == "Meter" else None,
-                    key=f"extend_contract_date_{property_id}_{scope}",
-                )
-            if st.button(
-                "Extend Contract",
-                key=f"extend_contract_submit_{property_id}_{scope}",
-                type="primary",
-                disabled=(scope == "Meter" and (property_end is None or property_end <= current_end)),
-            ):
-                if proposed_end <= current_end:
-                    st.error("The new end date must be later than the current contract end date.")
-                elif scope == "Meter" and property_end and proposed_end > property_end:
-                    st.error(
-                        f"Meter contract cannot end after the property contract ({property_end})."
-                    )
+            save_edit = st.form_submit_button("Save Contract Changes", type="primary")
+            if save_edit:
+                if not edit_number.strip() or not edit_name.strip():
+                    st.error("Contract Number and Contract Name are required.")
+                elif edit_end < edit_start:
+                    st.error("Contract end date cannot be earlier than its start date.")
                 else:
                     try:
-                        data_client().extend_contract_link(scope, selected_link, proposed_end)
-                        st.success("Contract end date updated successfully.")
+                        update_contract_link(scope, selected_link, edit_number.strip(),
+                                             edit_name.strip(), edit_start, edit_end)
                         st.cache_data.clear()
+                        st.success("Contract updated successfully.")
                         st.rerun()
                     except DataAccessError as exc:
-                        st.error("Could not extend the contract.")
+                        st.error("Could not update the contract.")
                         st.code(str(exc))
+
+        with st.expander("Delete selected contract"):
+            st.warning("This removes the selected property/meter contract link. The shared contract record is deleted only when no other links use it.")
+            confirm_delete = st.checkbox(
+                "I confirm that I want to delete this contract link.",
+                key=f"confirm_delete_contract_{property_id}_{scope}_{selected_link}",
+            )
+            if st.button("Delete Contract", type="secondary",
+                         disabled=not confirm_delete,
+                         key=f"delete_contract_{property_id}_{scope}_{selected_link}"):
+                try:
+                    delete_contract_link(scope, selected_link)
+                    st.cache_data.clear()
+                    st.success("Contract link deleted successfully.")
+                    st.rerun()
+                except DataAccessError as exc:
+                    st.error("Could not delete the contract.")
+                    st.code(str(exc))
+    else:
+        st.info(f"No {scope.lower()} contracts are currently linked to this property.")
 
     st.divider()
     st.markdown("**Add Contract**")
@@ -1678,14 +1666,10 @@ def render_contract_management(property_id, meters):
     with st.form(f"add_contract_form_{property_id}_{scope}", clear_on_submit=True):
         contract_number = st.text_input("Contract Number")
         contract_name = st.text_input("Contract Name")
-        supplier_id = st.selectbox(
-            "Supplier", list(vendor_options.keys()),
-            format_func=lambda value: vendor_options[value],
-        )
-        commodity_id = st.selectbox(
-            "Commodity", list(commodity_options.keys()),
-            format_func=lambda value: commodity_options[value],
-        )
+        supplier_id = st.selectbox("Supplier", list(vendor_options.keys()),
+                                   format_func=lambda value: vendor_options[value])
+        commodity_id = st.selectbox("Commodity", list(commodity_options.keys()),
+                                     format_func=lambda value: commodity_options[value])
         meter_id = None
         if scope == "Meter":
             if meters.empty:
@@ -1695,10 +1679,8 @@ def render_contract_management(property_id, meters):
                     meters["meter_id"].astype(str),
                     meters.apply(lambda row: f"{row.get('meter_number','')} | {row.get('meter_name') or row.get('commodity_name') or ''}", axis=1)
                 ))
-                meter_id = st.selectbox(
-                    "Meter", list(meter_options.keys()),
-                    format_func=lambda value: meter_options[value],
-                )
+                meter_id = st.selectbox("Meter", list(meter_options.keys()),
+                                        format_func=lambda value: meter_options[value])
         start_col, end_col = st.columns(2)
         with start_col:
             start_date = st.date_input("Contract Start Date", value=pd.Timestamp.today().date())
@@ -1723,8 +1705,8 @@ def render_contract_management(property_id, meters):
                         start_date, end_date, currency_code, auto_renewal,
                         int(renewal_notice_days),
                     )
-                    st.success("Contract created and linked successfully.")
                     st.cache_data.clear()
+                    st.success("Contract created and linked successfully.")
                     st.rerun()
                 except DataAccessError as exc:
                     st.error("Could not create the contract.")
@@ -2111,7 +2093,6 @@ def render_property_energy_management():
                 else:
                     st.info(f"No monthly cost records are available for {chosen}.")
 
-    st.subheader("Property operations")
     tabs = st.tabs([
         "Meters & Readings", "Meter Contracts", "Utility Accounts", "Vendors",
         "Rate Details", "Property Contracts", "Bills", "Procurement",
