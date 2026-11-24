@@ -1073,6 +1073,7 @@ def render_crud_entity(entity, title, property_id):
         flex-basis:88px !important; width:88px !important;
         min-width:88px !important; max-width:88px !important;
       }}
+      .st-key-{grid_key} .crud-header-row {{ margin:0 !important; padding:0 !important; }}
       .st-key-{grid_key} .crud-header-cell {{
         box-sizing:border-box !important; display:flex !important;
         align-items:center !important; min-height:48px !important;
@@ -1084,6 +1085,8 @@ def render_crud_entity(entity, title, property_id):
       .st-key-{grid_key} .crud-header-cell span {{
         display:block !important; width:100% !important;
       }}
+      .st-key-{grid_key} [data-testid="stMarkdown"],
+      .st-key-{grid_key} [data-testid="stMarkdownContainer"] {{ margin:0 !important; padding:0 !important; }}
       .st-key-{grid_key} [data-testid="stMarkdownContainer"] p {{
         margin:0 !important; white-space:nowrap !important;
         overflow:hidden !important; text-overflow:ellipsis !important;
@@ -1115,7 +1118,7 @@ def render_crud_entity(entity, title, property_id):
 
         for _, record in rows.iterrows():
             record_id = str(record[key_col])
-            cells = st.columns(widths, gap="small", vertical_alignment="center")
+            cells = st.columns(widths, gap="none", vertical_alignment="center")
             for idx, col_name in enumerate(visible):
                 raw_value = record.get(col_name)
                 if pd.isna(raw_value):
@@ -1126,7 +1129,7 @@ def render_crud_entity(entity, title, property_id):
                     display_value = str(raw_value)
                 with cells[idx]:
                     st.markdown(
-                        f'<div style="width:{data_width-20}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
+                        f'<div style="box-sizing:border-box;width:{data_width-20}px;min-width:{data_width-20}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
                         unsafe_allow_html=True,
                     )
             with cells[-2]:
