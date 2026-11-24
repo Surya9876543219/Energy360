@@ -817,10 +817,10 @@ class EnergyData:
             ("fact_vendor_payment","property_id")],
         "dim_meter": [("fact_meter_reading","meter_id"),("fact_property_energy_usage","meter_id"),
             ("bridge_meter_contract","meter_id"),("fact_energy_bill_line","meter_id"),
-            ("fact_purchase_order_line","meter_id")],
+            ("fact_purchase_order_line","meter_id"),("dim_meter","parent_meter_id")],
         "dim_utility_account": [("dim_meter","utility_account_id"),("fact_meter_reading","utility_account_id"),
             ("fact_property_energy_usage","utility_account_id"),("fact_energy_bill","utility_account_id")],
-        "dim_vendor": [("dim_utility_account","utility_vendor_id"),("dim_rate_class","utility_vendor_id"),
+        "dim_vendor": [("bridge_property_commodity_service","utility_vendor_id"),("dim_utility_account","utility_vendor_id"),("dim_rate_class","utility_vendor_id"),
             ("dim_rate_schedule","utility_vendor_id"),("dim_contract","supplier_vendor_id"),
             ("dim_contract","broker_vendor_id"),("fact_energy_bill","vendor_id"),
             ("fact_purchase_order","vendor_id"),("fact_vendor_invoice","vendor_id"),
@@ -908,6 +908,89 @@ class EnergyData:
                 found = self.query(f"SELECT COUNT(*) n FROM {self.qschema}.{parent} WHERE {parent_key}={self._crud_literal(values[col],'string')}")
                 if int(found.iloc[0]["n"]) == 0:
                     raise DataAccessError(f"Invalid relationship: {col} does not exist in {parent}.")
+
+        # Enforce cross-table consistency in addition to simple FK existence.
+        if table == "dim_meter":
+            prop = values.get("property_id")
+            acct = values.get("utility_account_id")
+            commodity = values.get("commodity_id")
+            if acct:
+                checks = self.query(f"SELECT property_id,commodity_id FROM {self.qschema}.dim_utility_account WHERE utility_account_id={self._sql_string(acct)}")
+                if not checks.empty and (str(checks.iloc[0]["property_id"]) != str(prop) or str(checks.iloc[0]["commodity_id"]) != str(commodity)):
+                    raise DataAccessError("The selected utility account must belong to the same property and commodity as the meter.")
+        elif table == "fact_meter_reading":
+            meter = values.get("meter_id")
+            if meter:
+                checks = self.query(f"SELECT property_id,commodity_id,utility_account_id FROM {self.qschema}.dim_meter WHERE meter_id={self._sql_string(meter)}")
+                if not checks.empty:
+                    m = checks.iloc[0]
+                    if str(m["property_id"]) != str(values.get("property_id")) or str(m["commodity_id"]) != str(values.get("commodity_id")):
+                        raise DataAccessError("Reading property and commodity must match the selected meter.")
+                    if values.get("utility_account_id") and pd.notna(m["utility_account_id"]) and str(m["utility_account_id"]) != str(values["utility_account_id"]):
+                        raise DataAccessError("The reading utility account must match the selected meter's account.")
+        elif table == "bridge_meter_contract":
+            meter = values.get("meter_id")
+            contract = values.get("contract_id")
+            if meter and contract:
+                check = self.query(f"""
+                    SELECT m.property_id,m.commodity_id,c.commodity_id AS contract_commodity
+                    FROM {self.qschema}.dim_meter m CROSS JOIN {self.qschema}.dim_contract c
+                    WHERE m.meter_id={self._sql_string(meter)} AND c.contract_id={self._sql_string(contract)}
+                """)
+                if not check.empty:
+                    row = check.iloc[0]
+                    if str(row["property_id"]) != str(values.get("property_id")):
+                        raise DataAccessError("Meter contract property must match the selected meter's property.")
+                    if pd.notna(row["contract_commodity"]) and str(row["commodity_id"]) != str(row["contract_commodity"]):
+                        raise DataAccessError("Meter and supplier contract must use the same commodity.")
+        elif table == "dim_utility_account":
+            prop, commodity, vendor = values.get("property_id"), values.get("commodity_id"), values.get("utility_vendor_id")
+            service = values.get("property_service_id")
+            if service:
+                check = self.query(f"SELECT property_id,commodity_id,utility_vendor_id FROM {self.qschema}.bridge_property_commodity_service WHERE property_service_id={self._sql_string(service)}")
+                if not check.empty:
+                    row = check.iloc[0]
+                    if str(row["property_id"]) != str(prop) or str(row["commodity_id"]) != str(commodity):
+                        raise DataAccessError("Utility account property and commodity must match its property service.")
+                    if pd.notna(row["utility_vendor_id"]) and str(row["utility_vendor_id"]) != str(vendor):
+                        raise DataAccessError("Utility account vendor must match the selected property service.")
+        elif table == "fact_energy_bill":
+            account = values.get("utility_account_id")
+            if account:
+                check = self.query(f"SELECT property_id,utility_vendor_id FROM {self.qschema}.dim_utility_account WHERE utility_account_id={self._sql_string(account)}")
+                if not check.empty:
+                    row = check.iloc[0]
+                    if str(row["property_id"]) != str(values.get("property_id")):
+                        raise DataAccessError("Bill property must match the selected utility account.")
+                    if str(row["utility_vendor_id"]) != str(values.get("vendor_id")):
+                        raise DataAccessError("Bill vendor must match the selected utility account's utility vendor.")
+        elif table == "fact_purchase_order_line":
+            po = values.get("purchase_order_id")
+            if po:
+                check = self.query(f"SELECT property_id FROM {self.qschema}.fact_purchase_order WHERE purchase_order_id={self._sql_string(po)}")
+                if not check.empty and pd.notna(check.iloc[0]["property_id"]) and str(check.iloc[0]["property_id"]) != str(values.get("property_id")):
+                    raise DataAccessError("Purchase order line property must match its purchase order.")
+        elif table == "fact_vendor_invoice":
+            po = values.get("purchase_order_id")
+            if po:
+                check = self.query(f"SELECT vendor_id,property_id,contract_id FROM {self.qschema}.fact_purchase_order WHERE purchase_order_id={self._sql_string(po)}")
+                if not check.empty:
+                    row = check.iloc[0]
+                    if str(row["vendor_id"]) != str(values.get("vendor_id")):
+                        raise DataAccessError("Invoice vendor must match the purchase order vendor.")
+                    if pd.notna(row["property_id"]) and str(row["property_id"]) != str(values.get("property_id")):
+                        raise DataAccessError("Invoice property must match the purchase order property.")
+        elif table == "fact_vendor_payment":
+            invoice = values.get("vendor_invoice_id")
+            if invoice:
+                check = self.query(f"SELECT vendor_id,property_id FROM {self.qschema}.fact_vendor_invoice WHERE vendor_invoice_id={self._sql_string(invoice)}")
+                if not check.empty:
+                    row = check.iloc[0]
+                    if str(row["vendor_id"]) != str(values.get("vendor_id")):
+                        raise DataAccessError("Payment vendor must match the selected invoice vendor.")
+                    if pd.notna(row["property_id"]) and str(row["property_id"]) != str(values.get("property_id")):
+                        raise DataAccessError("Payment property must match the selected invoice property.")
+
         for date_col in ("effective_start_date","contract_start_date","account_open_date","bill_period_start","invoice_date","order_date","reading_start_ts","reading_date"):
             end_col = {"effective_start_date":"effective_end_date","contract_start_date":"contract_end_date",
                        "account_open_date":"account_close_date","bill_period_start":"bill_period_end",
