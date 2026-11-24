@@ -430,7 +430,7 @@ class EnergyData:
         cat=self._sql_string(category); state=self._sql_string(status)
         note="NULL" if not notes else self._sql_string(notes)
         target=float(target_savings); realized=float(realized_savings)
-        if target <= 0 or realized < 0 or realized > target:
+        if target <= 0 or realized < 0:
             raise DataAccessError("Savings values are invalid.")
         self.execute(f"""
             INSERT INTO {q}.fact_property_savings_initiative
