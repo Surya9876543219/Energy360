@@ -1068,14 +1068,15 @@ def render_crud_entity(entity, title, property_id):
             else:
                 display_value = str(raw_value)
             cells_html.append(f"<td>{html.escape(display_value)}</td>")
-        edit_url = "?" + urlencode({
-            "crud_action": "edit", "crud_entity": entity,
-            "crud_property": str(property_id), "crud_record": rid,
-        })
-        delete_url = "?" + urlencode({
-            "crud_action": "delete", "crud_entity": entity,
-            "crud_property": str(property_id), "crud_record": rid,
-        })
+        action_params = {
+            "crud_entity": entity,
+            "crud_property": str(property_id),
+            "crud_record": rid,
+            "crud_page": "Property Energy Management",
+            "crud_section": st.session_state.get(f"property_ops_section_{property_id}", "Meters & Readings"),
+        }
+        edit_url = "?" + urlencode({**action_params, "crud_action": "edit"})
+        delete_url = "?" + urlencode({**action_params, "crud_action": "delete"})
         cells_html.append(
             f'<td class="crud-action"><a href="{html.escape(edit_url, quote=True)}">Edit</a></td>'
         )
@@ -1089,7 +1090,9 @@ def render_crud_entity(entity, title, property_id):
       .crud-table-wrap {{ width:100%; max-width:100%; overflow-x:auto; overflow-y:hidden; background:#FFFFFF; }}
       table.crud-table {{ border-collapse:collapse; width:max-content; min-width:100%; white-space:nowrap; font-size:13px; color:#17324D; }}
       .crud-table th,.crud-table td {{ padding:10px 12px; text-align:left; border-bottom:1px solid #E5EDF4; min-width:105px; max-width:320px; }}
-      .crud-table th {{ background:#F7F9FC; font-weight:650; color:#173A59; }}
+      .crud-table th {{ background:#F7F9FC; font-weight:650; color:#173A59; border-left:0; border-right:0; }}
+      .crud-table th:empty {{ background:transparent; border:0; padding:0; min-width:0; }}
+      .crud-table td {{ border-left:0; border-right:0; }}
       .crud-table td.crud-action {{ min-width:76px; width:76px; padding:8px; }}
       .crud-table td.crud-action a {{ display:inline-block; min-width:60px; padding:7px 10px; text-align:center; text-decoration:none; color:#173A59; background:#FFFFFF; border:1px solid #D7DEE7; border-radius:7px; }}
     </style>
@@ -2340,6 +2343,17 @@ def render_property_energy_management():
 
 # ------------------------- App entry -------------------------
 try:
+    # Restore the Property Operations context when a row action link is opened.
+    _crud_page = st.query_params.get("crud_page", "")
+    _crud_property = st.query_params.get("crud_property", "")
+    _crud_section = st.query_params.get("crud_section", "")
+    if _crud_page:
+        st.session_state["active_energy_page"] = _crud_page
+    if _crud_property:
+        st.session_state["selected_energy_property"] = _crud_property
+    if _crud_property and _crud_section:
+        st.session_state[f"property_ops_section_{_crud_property}"] = _crud_section
+
     with st.spinner("Connecting to Databricks SQL Warehouse..."):
         available=table_list()
     expected = {
