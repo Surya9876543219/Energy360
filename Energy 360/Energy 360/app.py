@@ -2092,26 +2092,17 @@ def render_property_energy_management():
     st.session_state["selected_energy_property"] = selected_id
     prop = properties.loc[properties["property_id"].astype(str) == selected_id].iloc[0]
 
+    # Load only the datasets needed for the property summary. Operational
+    # tables are fetched on demand when their section is selected below.
     try:
         energy = get_property_energy(selected_id)
         meters = get_property_meters(selected_id)
         accounts = get_property_accounts(selected_id)
-        vendors = get_property_vendors(selected_id)
-        rates = get_property_rates(selected_id)
         contracts = get_property_contracts(selected_id)
-        bills = get_property_bills(selected_id)
-        procurement = get_property_procurement(selected_id)
     except DataAccessError as exc:
-        st.error("Could not load this property's related records.")
+        st.error("Could not load this property's summary records.")
         st.code(str(exc))
         return
-
-    try:
-        meter_contracts = get_property_meter_contracts(selected_id)
-    except DataAccessError as exc:
-        meter_contracts = pd.DataFrame()
-        st.warning("Meter-level contract duration is not available yet. Run the contract duration migration SQL script, then refresh the app.")
-        st.caption(str(exc))
 
     area = prop.get("gross_area_sqft")
     area_text = f"{float(area):,.2f} gross sq. ft." if pd.notna(area) else "Area not provided"
