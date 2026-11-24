@@ -42,6 +42,41 @@ GRANT SELECT ON ALL TABLES IN SCHEMA energy.energy TO `<app-service-principal>`;
 GRANT MODIFY ON ALL TABLES IN SCHEMA energy.energy TO `<app-service-principal>`;
 ```
 
+## Energy Compliance and Budgets / Savings
+
+Two additional Operations pages use the existing `dim_property` property selector and
+`fact_property_energy_usage` actuals:
+
+- **Energy Compliance**: property energy and water use by commodity, recorded emissions,
+  building area, configured obligations, and reporting history. Energy and water units are
+  kept separate. Area-normalized metrics must only be calculated after confirming the
+  appropriate unit conversions and building-area data.
+- **Budgets / Savings**: a radio selector switches between property energy budgets and
+  savings initiatives. Budget actuals are calculated from existing property energy cost
+  records for the selected reporting period and commodity. Savings targets and realized
+  values are tracked separately.
+
+### Additional tables
+
+Run [property_compliance_and_budgeting.sql](sql/property_compliance_and_budgeting.sql)
+in the same target catalog/schema after reviewing it:
+
+- `dim_compliance_standard`: verified ordinance / building-performance standard metadata.
+- `bridge_property_compliance_obligation`: links each property to applicable standards,
+  reporting cadence, owner, status and due date.
+- `fact_property_compliance_report`: period-level benchmark measurements and submission
+  history.
+- `fact_property_energy_budget`: approved/draft budget by property, commodity and period.
+- `fact_property_savings_initiative`: planned and measured savings initiatives.
+
+The script creates empty tables and does not invent or seed legal requirements, threshold
+values, reporting deadlines, budget amounts or savings claims. Add compliance standards only
+from verified municipal, state or regional authority sources. The app allows users to create
+budget and savings initiative records; newly created budgets start in Draft status.
+
+The app service principal needs `USE CATALOG`, `USE SCHEMA`, `SELECT` and `MODIFY`
+permissions for the new tables, in addition to the existing property data permissions.
+
 ## Property Operations CRUD permissions
 
 The Property Energy Management module supports relationship-aware create, update and delete operations for meters, meter readings, meter contracts, utility accounts, vendors, rate classes/schedules/components, property contract links, utility bills and bill lines, purchase orders and lines, vendor invoices and lines, and vendor payments.
