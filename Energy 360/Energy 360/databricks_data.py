@@ -17,6 +17,7 @@ class EnergyData:
         self.catalog = self._identifier(catalog)
         self.schema = self._identifier(schema)
         self.connection = None
+        self._schema_cache = {}
 
     @staticmethod
     def _identifier(value):
@@ -26,12 +27,7 @@ class EnergyData:
 
     def _connect(self):
         if self.connection is not None:
-            try:
-                with self.connection.cursor() as cur:
-                    cur.execute("SELECT 1")
-                return self.connection
-            except Exception:
-                self.connection = None
+            return self.connection
         try:
             from databricks.sdk import WorkspaceClient
             from databricks import sql
@@ -860,14 +856,17 @@ class EnergyData:
 
     def crud_columns(self, entity):
         table, key = self.crud_table(entity)
-        rows = self.query(f"DESCRIBE TABLE {self.qschema}.{table}")
-        cols = []
-        for _, row in rows.iterrows():
-            name = str(row.iloc[0]).strip()
-            dtype = str(row.iloc[1]).strip().lower() if len(row) > 1 else ""
-            if not name or name.startswith("#") or name.startswith("_"):
-                continue
-            cols.append({"name": name, "type": dtype})
+        if table not in self._schema_cache:
+            rows = self.query(f"DESCRIBE TABLE {self.qschema}.{table}")
+            cols = []
+            for _, row in rows.iterrows():
+                name = str(row.iloc[0]).strip()
+                dtype = str(row.iloc[1]).strip().lower() if len(row) > 1 else ""
+                if not name or name.startswith("#") or name.startswith("_"):
+                    continue
+                cols.append({"name": name, "type": dtype})
+            self._schema_cache[table] = cols
+        cols = self._schema_cache[table]
         if not any(c["name"] == key for c in cols):
             raise DataAccessError(f"Expected key column {key} was not found in {table}.")
         return cols
@@ -899,10 +898,12 @@ class EnergyData:
             "dim_property","dim_commodity","bridge_property_commodity_service","dim_contract"
         }:
             raise DataAccessError("Relationship lookup table is not enabled.")
-        rows = self.query(f"DESCRIBE TABLE {self.qschema}.{table}")
-        return [{"name": str(r.iloc[0]).strip(), "type": str(r.iloc[1]).strip().lower()}
+        if table not in self._schema_cache:
+            rows = self.query(f"DESCRIBE TABLE {self.qschema}.{table}")
+            self._schema_cache[table] = [{"name": str(r.iloc[0]).strip(), "type": str(r.iloc[1]).strip().lower()}
                 for _, r in rows.iterrows()
                 if str(r.iloc[0]).strip() and not str(r.iloc[0]).strip().startswith("#")]
+        return self._schema_cache[table]
 
     def _crud_literal(self, value, dtype):
         if value is None or (isinstance(value, float) and pd.isna(value)) or value == "":
