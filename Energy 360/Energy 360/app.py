@@ -1092,7 +1092,7 @@ def render_crud_entity(entity, title, property_id):
         for idx, col_name in enumerate(visible):
             with header[idx]:
                 st.markdown(
-                    f'<div style="width:{data_width-20}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:650;">{html.escape(col_name.replace("_", " ").title())}</div>',
+                    f'<div style="box-sizing:border-box;width:{data_width-20}px;min-height:42px;display:flex;align-items:center;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.2;font-weight:650;padding:3px 0;">{html.escape(col_name.replace("_", " ").title())}</div>',
                     unsafe_allow_html=True,
                 )
 
@@ -1148,7 +1148,10 @@ def render_crud_entity(entity, title, property_id):
                 )
             if active_edit == record_id:
                 with st.container(border=True):
-                    st.markdown(f"**Edit {title.rstrip('s')} — {record_id}**")
+                    st.markdown(
+                        f'<div style="display:block;width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:10px;background:#F7F9FC;border-bottom:1px solid #DCE6EF;border-radius:6px;font-size:14px;font-weight:700;line-height:1.4;white-space:normal;overflow-wrap:anywhere;">Edit {html.escape(title.rstrip("s"))} — {html.escape(record_id)}</div>',
+                        unsafe_allow_html=True,
+                    )
                     with st.form(f"crud_edit_{entity}_{property_id}_{record_id}"):
                         values = {}
                         for col in editable:
