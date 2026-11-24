@@ -1567,10 +1567,6 @@ def render_filter_bar():
 
 def render_dashboard(start_d, end_d, state):
     """Executive portfolio view sourced only from the four property modules."""
-    page_heading(
-        "Executive Dashboard",
-        "Consolidated energy, financial, compliance and contract performance across the property portfolio."
-    )
     try:
         properties = get_property_list()
         if properties.empty:
