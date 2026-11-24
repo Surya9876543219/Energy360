@@ -1069,6 +1069,12 @@ def render_crud_entity(entity, title, property_id):
         flex:0 0 {data_width}px !important; width:{data_width}px !important;
         min-width:{data_width}px !important; max-width:{data_width}px !important;
         padding:8px 10px !important;
+        border-left:1px solid #D9E1EA !important;
+        border-top:1px solid #D9E1EA !important;
+        background:#FFFFFF !important;
+      }}
+      .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="column"]:last-child {{
+        border-right:1px solid #D9E1EA !important;
       }}
       .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-last-child(-n+2) {{
         box-sizing:border-box !important;
