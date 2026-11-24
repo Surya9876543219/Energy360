@@ -812,11 +812,9 @@ class EnergyData:
     }
 
     CRUD_UNIQUE_COLUMNS = {
-        "dim_meter": ["meter_number"],
         "dim_utility_account": ["account_number"],
         "dim_vendor": ["vendor_code"],
         "dim_contract": ["contract_number"],
-        "dim_rate_schedule": ["rate_code"],
         "fact_energy_bill": ["bill_number"],
         "fact_purchase_order": ["purchase_order_number"],
         "fact_vendor_invoice": ["vendor_invoice_number"],
