@@ -2231,18 +2231,9 @@ def render_energy_compliance():
         st.code(str(exc))
         return
 
-    st.subheader("Portfolio Benchmarking — All Properties")
-    try:
-        portfolio = data_client().property_energy_portfolio_data()
-        if not portfolio.empty:
-            st.dataframe(portfolio, use_container_width=True, hide_index=True)
-        else:
-            st.info("No property energy records are available across the portfolio.")
-    except DataAccessError as exc:
-        st.warning("Could not load the portfolio benchmarking summary.")
-        st.caption(str(exc))
-
-    st.subheader("Building Performance Overview")
+    # All compliance visuals below are scoped to the property selected above.
+    # Do not show the all-properties portfolio table on this property-level page.
+    st.subheader(f"Building Performance Overview — {prop.get('property_name', property_id)}")
     area = pd.to_numeric(pd.Series([prop.get("gross_area_sqft")]), errors="coerce").iloc[0]
     frame = energy.copy()
     if not frame.empty:
