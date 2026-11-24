@@ -1064,6 +1064,14 @@ def render_crud_entity(entity, title, property_id):
         max-width:none !important; gap:0 !important;
         border-bottom:1px solid #E5EDF4 !important; padding:0 !important;
       }}
+      .st-key-{grid_key} [class*="st-key-crud-grid-row-"] {{
+        display:block !important;
+        width:max-content !important;
+        min-width:max-content !important;
+        max-width:none !important;
+        margin:0 !important;
+        padding:0 !important;
+      }}
       .st-key-{grid_key} [class*="st-key-crud-grid-row-"] [data-testid="stHorizontalBlock"] {{
         display:flex !important; flex-wrap:nowrap !important;
         width:max-content !important; min-width:max-content !important;
