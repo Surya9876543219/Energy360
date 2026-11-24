@@ -1037,63 +1037,78 @@ def render_crud_entity(entity, title, property_id):
         st.caption(f"No {title.lower()} records found.")
         return
 
-    # Keep the same compact table presentation for every CRUD entity.
-    # Wide entities scroll horizontally instead of squeezing/wrapping columns.
+    # Preserve the approved compact row layout while making the full grid
+    # horizontally scrollable. Each data column has a fixed readable width.
     visible = list(rows.columns)
-    data_width = 118 if len(visible) <= 10 else 132
-    widths = [data_width] * len(visible) + [82, 86]
-    st.markdown("""
+    data_width = 132
+    widths = [1] * len(visible) + [1, 1]
+    grid_key = f"crud-native-grid-{entity}-{property_id}"
+    st.markdown(f"""
     <style>
-      [class*="st-key-crud-native-grid-"] {
+      .st-key-{grid_key} {{
         display:block !important;
+        position:relative !important;
         width:100% !important;
         max-width:100% !important;
         overflow-x:auto !important;
         overflow-y:hidden !important;
-      }
-      [class*="st-key-crud-native-grid-"] [data-testid="stVerticalBlock"] {
+        scrollbar-width:auto !important;
+        padding-bottom:8px !important;
+      }}
+      .st-key-{grid_key} > div,
+      .st-key-{grid_key} [data-testid="stVerticalBlock"] {{
+        width:max-content !important;
+        min-width:100% !important;
+        max-width:none !important;
         display:flex !important;
         flex-direction:column !important;
         gap:0 !important;
-        width:max-content !important;
-        min-width:100% !important;
-      }
-      [class*="st-key-crud-native-grid-"] [data-testid="stHorizontalBlock"] {
+      }}
+      .st-key-{grid_key} [data-testid="stHorizontalBlock"] {{
         display:flex !important;
         flex-wrap:nowrap !important;
         align-items:center !important;
-        gap:0 !important;
+        justify-content:flex-start !important;
         width:max-content !important;
         min-width:100% !important;
-        padding:0 !important;
+        max-width:none !important;
+        gap:0 !important;
         border-bottom:1px solid #E5EDF4 !important;
-      }
-      [class*="st-key-crud-native-grid-"] [data-testid="column"] {
-        flex:0 0 auto !important;
-        min-width:0 !important;
+        padding:0 !important;
+      }}
+      .st-key-{grid_key} [data-testid="column"] {{
+        flex:0 0 {data_width}px !important;
+        width:{data_width}px !important;
+        min-width:{data_width}px !important;
+        max-width:{data_width}px !important;
         padding:8px 10px !important;
-      }
-      [class*="st-key-crud-native-grid-"] [data-testid="stMarkdownContainer"] p {
+      }}
+      .st-key-{grid_key} [data-testid="column"]:nth-last-child(2),
+      .st-key-{grid_key} [data-testid="column"]:last-child {{
+        flex-basis:88px !important;
+        width:88px !important;
+        min-width:88px !important;
+        max-width:88px !important;
+      }}
+      .st-key-{grid_key} [data-testid="stMarkdownContainer"] p {{
         margin:0 !important;
         white-space:nowrap !important;
         overflow:hidden !important;
         text-overflow:ellipsis !important;
         font-size:13px !important;
-      }
-      [class*="st-key-crud-native-grid-"] [data-testid="stButton"] {
-        margin:0 !important;
-      }
-      [class*="st-key-crud-native-grid-"] [data-testid="stButton"] button {
-        min-width:70px !important;
+      }}
+      .st-key-{grid_key} [data-testid="stButton"] {{ margin:0 !important; }}
+      .st-key-{grid_key} [data-testid="stButton"] button {{
         width:100% !important;
+        min-width:68px !important;
         min-height:34px !important;
-        padding:5px 8px !important;
+        padding:5px 7px !important;
         white-space:nowrap !important;
-      }
+      }}
     </style>
     """, unsafe_allow_html=True)
 
-    with st.container(key=f"crud-native-grid-{entity}-{property_id}"):
+    with st.container(key=grid_key):
         header = st.columns(widths, gap="small", vertical_alignment="center")
         for idx, col_name in enumerate(visible):
             with header[idx]:
