@@ -34,12 +34,42 @@ header[data-testid="stHeader"],[data-testid="stHeader"]{
  display:flex!important;visibility:visible!important;opacity:1!important;
  pointer-events:auto!important;position:relative!important;z-index:100002!important
 }
+/* Minimal sidebar toggle: white arrow only, with no button tile. */
 [data-testid="stSidebarCollapseButton"] button,
 [data-testid="stSidebarExpandButton"] button,
 [data-testid="stSidebarCollapsedControl"] button{
- display:flex!important;visibility:visible!important;opacity:1!important;
- pointer-events:auto!important;color:#173A59!important;background:#FFFFFF!important;
- border:1px solid #DCE6EF!important;border-radius:7px!important
+ display:flex!important;
+ align-items:center!important;
+ justify-content:center!important;
+ visibility:visible!important;
+ opacity:1!important;
+ pointer-events:auto!important;
+ color:#FFFFFF!important;
+ background:transparent!important;
+ border:0!important;
+ border-radius:0!important;
+ box-shadow:none!important;
+ padding:0.25rem!important;
+ min-width:2rem!important;
+ min-height:2rem!important;
+}
+[data-testid="stSidebarCollapseButton"] button:hover,
+[data-testid="stSidebarExpandButton"] button:hover,
+[data-testid="stSidebarCollapsedControl"] button:hover,
+[data-testid="stSidebarCollapseButton"] button:focus,
+[data-testid="stSidebarExpandButton"] button:focus,
+[data-testid="stSidebarCollapsedControl"] button:focus{
+ color:#FFFFFF!important;
+ background:transparent!important;
+ border:0!important;
+ box-shadow:none!important;
+}
+[data-testid="stSidebarCollapseButton"] button svg,
+[data-testid="stSidebarExpandButton"] button svg,
+[data-testid="stSidebarCollapsedControl"] button svg{
+ color:#FFFFFF!important;
+ fill:none!important;
+ stroke:#FFFFFF!important;
 }
 [data-testid="stAppViewContainer"] .main{padding-top:0!important;margin-top:0!important}
 section[data-testid="stMain"]{padding-top:0!important}
