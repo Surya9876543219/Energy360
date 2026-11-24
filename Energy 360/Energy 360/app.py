@@ -1132,7 +1132,7 @@ def render_crud_entity(entity, title, property_id):
             for idx, col_name in enumerate(visible):
                 with header[idx]:
                     st.markdown(
-                    f'<div style="box-sizing:border-box;display:block;width:{data_width-20}px;min-height:42px;margin:0;padding:0;text-align:left;white-space:normal;overflow-wrap:anywhere;line-height:1.2;font-weight:650;">{html.escape("".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split()))}</div>',
+                    f'<div title="{html.escape("".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split()), quote=True)}" style="box-sizing:border-box;display:flex;align-items:center;width:{data_width-20}px;min-height:48px;margin:0;padding:7px 8px;border:1px solid #C9D4E0;background:#EDF2F7;text-align:left;white-space:normal;overflow-wrap:anywhere;line-height:1.2;font-weight:700;">{html.escape("".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split()))}</div>',
                         unsafe_allow_html=True,
                     )
             with header[-2]:
@@ -1154,7 +1154,7 @@ def render_crud_entity(entity, title, property_id):
                         display_value = str(raw_value)
                     with cells[idx]:
                         st.markdown(
-                            f'<div style="box-sizing:border-box;display:block;width:{data_width-20}px;min-width:{data_width-20}px;margin:0;padding:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
+                            f'<div title="{html.escape(display_value, quote=True)}" style="box-sizing:border-box;display:flex;align-items:center;width:{data_width-20}px;min-height:38px;margin:0;padding:7px 8px;border:1px solid #D5DEE8;background:#FFFFFF;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
                             unsafe_allow_html=True,
                         )
                 with cells[-2]:
