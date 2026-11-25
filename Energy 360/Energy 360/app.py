@@ -1056,7 +1056,9 @@ def render_crud_entity(entity, title, property_id):
     # Preserve the approved compact row layout while making the full grid
     # horizontally scrollable. Each data column has a fixed readable width.
     visible = list(rows.columns)
-    data_width = 132
+    # Wider fixed columns keep long field names readable and ensure every
+    # header stays directly above its corresponding value while scrolling.
+    data_width = 168
     widths = [data_width] * len(visible) + [88, 88]
     grid_key = f"crud-native-grid-{entity}-{property_id}"
     st.markdown(f"""
@@ -1064,8 +1066,9 @@ def render_crud_entity(entity, title, property_id):
       .st-key-{grid_key} {{
         display:block !important; position:relative !important;
         width:100% !important; max-width:100% !important;
-        overflow-x:auto !important; overflow-y:hidden !important;
-        scrollbar-width:auto !important; padding-bottom:8px !important;
+        overflow-x:scroll !important; overflow-y:hidden !important;
+        scrollbar-width:thin !important; padding-bottom:10px !important;
+        scrollbar-color:#8FA3B8 #E8EEF4 !important;
       }}
       .st-key-{grid_key} > div,
       .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] {{
@@ -1118,8 +1121,8 @@ def render_crud_entity(entity, title, property_id):
         align-items:center !important; min-height:48px !important;
         padding:7px 10px !important; border-right:1px solid #E5EDF4 !important;
         font-size:13px !important; font-weight:650 !important;
-        line-height:1.25 !important; white-space:normal !important;
-        overflow-wrap:anywhere !important; word-break:normal !important;
+        line-height:1.3 !important; white-space:normal !important;
+        overflow-wrap:normal !important; word-break:keep-all !important;
       }}
       .st-key-{grid_key} .crud-header-cell span {{
         display:block !important; width:100% !important;
@@ -1148,7 +1151,7 @@ def render_crud_entity(entity, title, property_id):
             for idx, col_name in enumerate(visible):
                 with header[idx]:
                     st.markdown(
-                    f'<div title="{html.escape("".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split()), quote=True)}" style="box-sizing:border-box;display:flex;align-items:center;width:{data_width-20}px;min-height:48px;margin:0;padding:7px 8px;border:1px solid #C9D4E0;background:#EDF2F7;text-align:left;white-space:normal;overflow-wrap:anywhere;line-height:1.2;font-weight:700;">{html.escape("".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split()))}</div>',
+                    f'<div title="{html.escape("".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split()), quote=True)}" style="box-sizing:border-box;display:flex;align-items:center;width:{data_width-20}px;min-height:54px;margin:0;padding:8px 9px;border:1px solid #C9D4E0;background:#EDF2F7;text-align:left;white-space:normal;overflow-wrap:normal;word-break:keep-all;line-height:1.3;font-weight:700;">{html.escape("".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split()))}</div>',
                         unsafe_allow_html=True,
                     )
             with header[-2]:
