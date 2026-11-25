@@ -1147,7 +1147,7 @@ def render_crud_entity(entity, title, property_id):
         # Render headers with the exact same Streamlit column structure and
         # width ratios as each data row. This guarantees header/value alignment.
         with st.container(key=f"crud-grid-row-{entity}-{property_id}-header"):
-            header = st.columns(widths, gap=0, vertical_alignment="center")
+            header = st.columns(len(widths), gap=0, vertical_alignment="center")
             for idx, col_name in enumerate(visible):
                 with header[idx]:
                     st.markdown(
@@ -1162,7 +1162,7 @@ def render_crud_entity(entity, title, property_id):
         for _, record in rows.iterrows():
             record_id = str(record[key_col])
             with st.container(key=f"crud-grid-row-{entity}-{property_id}-{record_id}"):
-                cells = st.columns(widths, gap=0, vertical_alignment="center")
+                cells = st.columns(len(widths), gap=0, vertical_alignment="center")
                 for idx, col_name in enumerate(visible):
                     raw_value = record.get(col_name)
                     if pd.isna(raw_value):
