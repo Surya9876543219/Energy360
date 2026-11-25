@@ -1096,7 +1096,10 @@ def render_crud_entity(entity, title, property_id):
         width:max-content !important; min-width:max-content !important;
         gap:0 !important; align-items:stretch !important;
       }}
-      .st-key-{grid_key} [class*="st-key-crud-grid-row-"] [data-testid="column"] {{
+      /* Apply fixed sizing to every Streamlit column in the grid, including
+         the header row. The previous row-key selector missed header wrappers
+         in some Streamlit DOM versions, causing independent column sizing. */
+      .st-key-{grid_key} [data-testid="column"] {{
         box-sizing:border-box !important;
         flex:0 0 {data_width}px !important; width:{data_width}px !important;
         min-width:{data_width}px !important; max-width:{data_width}px !important;
@@ -1107,12 +1110,12 @@ def render_crud_entity(entity, title, property_id):
         background:#FFFFFF !important;
         text-align:left !important;
       }}
-      .st-key-{grid_key} [class*="st-key-crud-grid-row-"] [data-testid="column"]:nth-last-child(-n+2) {{
+      .st-key-{grid_key} [data-testid="column"]:nth-last-child(-n+2) {{
         box-sizing:border-box !important;
         flex:0 0 88px !important; width:88px !important;
         min-width:88px !important; max-width:88px !important;
       }}
-      .st-key-{grid_key} [class*="st-key-crud-grid-row-"] [data-testid="column"]:last-child {{
+      .st-key-{grid_key} [data-testid="column"]:last-child {{
         border-right:1px solid #D9E1EA !important;
       }}
       .st-key-{grid_key} .crud-header-row {{ margin:0 !important; padding:0 !important; }}
