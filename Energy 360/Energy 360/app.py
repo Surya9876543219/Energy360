@@ -1053,9 +1053,9 @@ def render_crud_entity(entity, title, property_id):
         st.caption(f"No {title.lower()} records found.")
         return
 
-    # Use Streamlit's native dataframe renderer for the data grid.
-    # It owns both header and body column geometry, preventing the drift caused
-    # by independently rendered st.columns() rows across Streamlit versions.
+    # Keep the current native dataframe appearance. Render row-level actions
+    # in a fixed adjacent action rail so the table's native column alignment,
+    # formatting, and horizontal scrolling remain unchanged.
     visible = list(rows.columns)
     grid_key = f"crud-native-grid-{entity}-{property_id}"
 
@@ -1069,56 +1069,51 @@ def render_crud_entity(entity, title, property_id):
             )
         )
 
-    st.dataframe(
-        display_rows,
-        hide_index=True,
-        use_container_width=True,
-        height=min(420, 38 + 36 * len(display_rows)),
-        key=grid_key,
-    )
+    table_col, action_col = st.columns([0.86, 0.14], gap="small")
+    table_height = min(420, 38 + 35 * len(display_rows))
+    with table_col:
+        st.dataframe(
+            display_rows,
+            hide_index=True,
+            use_container_width=True,
+            height=table_height,
+            key=grid_key,
+        )
 
-    # Keep record actions outside the grid so the table remains a single,
-    # natively aligned component with reliable horizontal scrolling.
-    action_options = [
-        (str(record[key_col]), " · ".join(
-            str(record.get(col, "")) for col in visible[:2]
-            if pd.notna(record.get(col))
-        ) or str(record[key_col]))
-        for _, record in rows.iterrows()
-    ]
-    selected_action_id = st.selectbox(
-        f"Select {title.rstrip('s')} for Edit or Delete",
-        options=[""] + [item[0] for item in action_options],
-        format_func=lambda value: (
-            "Choose a record..." if not value
-            else next((label for record_id, label in action_options if record_id == value), value)
-        ),
-        key=f"crud_action_select_{entity}_{property_id}",
-    )
-    action_edit, action_delete = st.columns([1, 1])
-    with action_edit:
-        if st.button(
-            "Edit Selected", key=f"crud_edit_selected_{entity}_{property_id}",
-            use_container_width=True, disabled=not selected_action_id,
-        ):
-            st.session_state[f"crud_active_edit_{entity}_{property_id}"] = selected_action_id
-            st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
-    with action_delete:
-        if st.button(
-            "Delete Selected", key=f"crud_delete_selected_{entity}_{property_id}",
-            use_container_width=True, disabled=not selected_action_id,
-        ):
-            st.session_state[f"crud_active_delete_{entity}_{property_id}"] = selected_action_id
-            st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+    active_edit_key = f"crud_active_edit_{entity}_{property_id}"
+    active_delete_key = f"crud_active_delete_{entity}_{property_id}"
+    with action_col:
+        st.markdown(
+            '<div style="height:38px;display:flex;align-items:center;'
+            'font-weight:600;font-size:13px;padding-left:4px;">Actions</div>',
+            unsafe_allow_html=True,
+        )
+        for row_index, (_, action_record) in enumerate(rows.iterrows()):
+            action_id = str(action_record[key_col])
+            edit_col, delete_col = st.columns(2, gap="small")
+            with edit_col:
+                if st.button(
+                    "✏️", key=f"crud_edit_row_{entity}_{property_id}_{action_id}",
+                    help="Edit this row", use_container_width=True,
+                ):
+                    st.session_state[active_edit_key] = action_id
+                    st.session_state.pop(active_delete_key, None)
+            with delete_col:
+                if st.button(
+                    "🗑️", key=f"crud_delete_row_{entity}_{property_id}_{action_id}",
+                    help="Delete this row", use_container_width=True,
+                ):
+                    st.session_state[active_delete_key] = action_id
+                    st.session_state.pop(active_edit_key, None)
 
-    active_edit = st.session_state.get(f"crud_active_edit_{entity}_{property_id}")
-    active_delete = st.session_state.get(f"crud_active_delete_{entity}_{property_id}")
+    active_edit = st.session_state.get(active_edit_key)
+    active_delete = st.session_state.get(active_delete_key)
     active_id = active_edit or active_delete
     if active_id:
         matching = rows[rows[key_col].astype(str) == str(active_id)]
         if matching.empty:
-            st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
-            st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+            st.session_state.pop(active_edit_key, None)
+            st.session_state.pop(active_delete_key, None)
             st.warning("The selected record is no longer available. Refresh the table and try again.")
             return
         record = matching.iloc[0]
@@ -1170,14 +1165,14 @@ def render_crud_entity(entity, title, property_id):
                     if submitted:
                         try:
                             save_crud_record(entity, values, str(active_id))
-                            st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+                            st.session_state.pop(active_edit_key, None)
                             clear_property_crud_cache()
                             st.success("Record updated.")
                             st.rerun()
                         except DataAccessError as exc:
                             st.error(f"Update blocked: {exc}")
                     elif cancel:
-                        st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+                        st.session_state.pop(active_edit_key, None)
                         st.rerun()
 
         if active_delete:
@@ -1191,7 +1186,7 @@ def render_crud_entity(entity, title, property_id):
                     ):
                         try:
                             delete_crud_record(entity, str(active_id))
-                            st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+                            st.session_state.pop(active_delete_key, None)
                             clear_property_crud_cache()
                             st.success("Record deleted.")
                             st.rerun()
@@ -1202,7 +1197,7 @@ def render_crud_entity(entity, title, property_id):
                         "Cancel", key=f"crud_cancel_delete_{entity}_{active_id}",
                         use_container_width=True,
                     ):
-                        st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+                        st.session_state.pop(active_delete_key, None)
                         st.rerun()
 
 
