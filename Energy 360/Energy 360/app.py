@@ -1053,248 +1053,157 @@ def render_crud_entity(entity, title, property_id):
         st.caption(f"No {title.lower()} records found.")
         return
 
-    # Preserve the approved compact row layout while making the full grid
-    # horizontally scrollable. Each data column has a fixed readable width.
+    # Use Streamlit's native dataframe renderer for the data grid.
+    # It owns both header and body column geometry, preventing the drift caused
+    # by independently rendered st.columns() rows across Streamlit versions.
     visible = list(rows.columns)
-    # Wider fixed columns keep long field names readable and ensure every
-    # header stays directly above its corresponding value while scrolling.
-    data_width = 168
-    widths = [data_width] * len(visible) + [88, 88]
     grid_key = f"crud-native-grid-{entity}-{property_id}"
-    st.markdown(f"""
-    <style>
-      .st-key-{grid_key} {{
-        display:block !important; position:relative !important;
-        width:100% !important; max-width:100% !important;
-        overflow-x:scroll !important; overflow-y:hidden !important;
-        scrollbar-width:thin !important; padding-bottom:10px !important;
-        scrollbar-color:#8FA3B8 #E8EEF4 !important;
-      }}
-      .st-key-{grid_key} > div,
-      .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] {{
-        width:max-content !important; min-width:100% !important;
-        max-width:none !important; display:flex !important;
-        flex-direction:column !important; gap:0 !important;
-      }}
-      .st-key-{grid_key} > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] {{
-        display:flex !important; flex-wrap:nowrap !important;
-        align-items:center !important; justify-content:flex-start !important;
-        width:max-content !important; min-width:100% !important;
-        max-width:none !important; gap:0 !important;
-        border-bottom:1px solid #E5EDF4 !important; padding:0 !important;
-      }}
-      .st-key-{grid_key} [class*="st-key-crud-grid-row-"] {{
-        display:block !important;
-        width:max-content !important;
-        min-width:max-content !important;
-        max-width:none !important;
-        margin:0 !important;
-        padding:0 !important;
-      }}
-      .st-key-{grid_key} [class*="st-key-crud-grid-row-"] [data-testid="stHorizontalBlock"] {{
-        display:flex !important; flex-wrap:nowrap !important;
-        width:max-content !important; min-width:max-content !important;
-        gap:0 !important; align-items:stretch !important;
-      }}
-      /* Apply fixed sizing to every Streamlit column in the grid, including
-         the header row. The previous row-key selector missed header wrappers
-         in some Streamlit DOM versions, causing independent column sizing. */
-      .st-key-{grid_key} [data-testid="column"] {{
-        box-sizing:border-box !important;
-        flex:0 0 {data_width}px !important; width:{data_width}px !important;
-        min-width:{data_width}px !important; max-width:{data_width}px !important;
-        padding:8px 10px !important;
-        border-left:1px solid #D9E1EA !important;
-        border-top:1px solid #D9E1EA !important;
-        border-bottom:1px solid #D9E1EA !important;
-        background:#FFFFFF !important;
-        text-align:left !important;
-      }}
-      .st-key-{grid_key} [data-testid="column"]:nth-last-child(-n+2) {{
-        box-sizing:border-box !important;
-        flex:0 0 88px !important; width:88px !important;
-        min-width:88px !important; max-width:88px !important;
-      }}
-      .st-key-{grid_key} [data-testid="column"]:last-child {{
-        border-right:1px solid #D9E1EA !important;
-      }}
-      .st-key-{grid_key} .crud-header-row {{ margin:0 !important; padding:0 !important; }}
-      .st-key-{grid_key} .crud-header-cell {{
-        box-sizing:border-box !important; display:flex !important;
-        align-items:center !important; min-height:48px !important;
-        padding:7px 10px !important; border-right:1px solid #E5EDF4 !important;
-        font-size:13px !important; font-weight:650 !important;
-        line-height:1.3 !important; white-space:normal !important;
-        overflow-wrap:normal !important; word-break:keep-all !important;
-      }}
-      .st-key-{grid_key} .crud-header-cell span {{
-        display:block !important; width:100% !important;
-      }}
-      .st-key-{grid_key} [data-testid="stMarkdown"],
-      .st-key-{grid_key} [data-testid="stMarkdownContainer"] {{ margin:0 !important; padding:0 !important; text-align:left !important; width:100% !important; }}
-      .st-key-{grid_key} [data-testid="stMarkdownContainer"] p {{ text-align:left !important;
-        margin:0 !important; white-space:nowrap !important;
-        overflow:hidden !important; text-overflow:ellipsis !important;
-        font-size:13px !important;
-      }}
-      .st-key-{grid_key} [data-testid="stButton"] {{ margin:0 !important; }}
-      .st-key-{grid_key} [data-testid="stButton"] button {{
-        width:100% !important; min-width:68px !important;
-        min-height:34px !important; padding:5px 7px !important;
-        white-space:nowrap !important;
-      }}
-    </style>
-    """, unsafe_allow_html=True)
 
-    with st.container(key=grid_key):
-        # Render headers with the exact same Streamlit column structure and
-        # width ratios as each data row. This guarantees header/value alignment.
-        with st.container(key=f"crud-grid-row-{entity}-{property_id}-header"):
-            header = st.columns(len(widths), gap=0, vertical_alignment="center")
-            for idx, col_name in enumerate(visible):
-                with header[idx]:
-                    st.markdown(
-                    f'<div title="{html.escape("".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split()), quote=True)}" style="box-sizing:border-box;display:flex;align-items:center;width:{data_width-20}px;min-height:54px;margin:0;padding:8px 9px;border:1px solid #C9D4E0;background:#EDF2F7;text-align:left;white-space:normal;overflow-wrap:normal;word-break:keep-all;line-height:1.3;font-weight:700;">{html.escape("".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split()))}</div>',
-                        unsafe_allow_html=True,
-                    )
-            with header[-2]:
-                st.markdown("")
-            with header[-1]:
-                st.markdown("")
+    display_rows = rows[visible].copy()
+    for col_name in visible:
+        display_rows[col_name] = display_rows[col_name].map(
+            lambda value: (
+                "—" if pd.isna(value)
+                else value.strftime("%Y-%m-%d") if isinstance(value, pd.Timestamp)
+                else str(value)
+            )
+        )
 
-        for _, record in rows.iterrows():
-            record_id = str(record[key_col])
-            with st.container(key=f"crud-grid-row-{entity}-{property_id}-{record_id}"):
-                cells = st.columns(len(widths), gap=0, vertical_alignment="center")
-                for idx, col_name in enumerate(visible):
-                    raw_value = record.get(col_name)
-                    if pd.isna(raw_value):
-                        display_value = "—"
-                    elif isinstance(raw_value, pd.Timestamp):
-                        display_value = raw_value.strftime("%Y-%m-%d")
-                    else:
-                        display_value = str(raw_value)
-                    with cells[idx]:
-                        st.markdown(
-                            f'<div title="{html.escape(display_value, quote=True)}" style="box-sizing:border-box;display:flex;align-items:center;width:{data_width-20}px;min-height:38px;margin:0;padding:7px 8px;border:1px solid #D5DEE8;background:#FFFFFF;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{html.escape(display_value)}</div>',
-                            unsafe_allow_html=True,
-                        )
-                with cells[-2]:
-                    if st.button("Edit", key=f"crud_edit_row_{entity}_{property_id}_{record_id}", use_container_width=True):
-                        st.session_state[f"crud_active_edit_{entity}_{property_id}"] = record_id
-                        st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
-                with cells[-1]:
-                    if st.button("Delete", key=f"crud_delete_row_{entity}_{property_id}_{record_id}", use_container_width=True):
-                        st.session_state[f"crud_active_delete_{entity}_{property_id}"] = record_id
-                        st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+    st.dataframe(
+        display_rows,
+        hide_index=True,
+        use_container_width=True,
+        height=min(420, 38 + 36 * len(display_rows)),
+        key=grid_key,
+    )
 
-            # When an action is selected at the far-right end, reset the horizontal
-            # table viewport to the first column so the inline form is immediately visible.
-            active_edit = st.session_state.get(f"crud_active_edit_{entity}_{property_id}")
-            active_delete_for_row = st.session_state.get(f"crud_active_delete_{entity}_{property_id}")
-            if active_edit == record_id or active_delete_for_row == record_id:
-                st.components.v1.html(
-                    f"""
-                    <script>
-                    (() => {{
-                      const selector = ".st-key-{grid_key}";
-                      const reset = () => {{
-                        try {{
-                          const frame = window.parent.document.querySelector(selector);
-                          if (frame) frame.scrollTo({{left: 0, behavior: "instant"}});
-                        }} catch (e) {{}}
-                      }};
-                      reset();
-                      requestAnimationFrame(reset);
-                      setTimeout(reset, 80);
-                    }})();
-                    </script>
-                    """,
-                    height=0,
-                    scrolling=False,
+    # Keep record actions outside the grid so the table remains a single,
+    # natively aligned component with reliable horizontal scrolling.
+    action_options = [
+        (str(record[key_col]), " · ".join(
+            str(record.get(col, "")) for col in visible[:2]
+            if pd.notna(record.get(col))
+        ) or str(record[key_col]))
+        for _, record in rows.iterrows()
+    ]
+    selected_action_id = st.selectbox(
+        f"Select {title.rstrip('s')} for Edit or Delete",
+        options=[""] + [item[0] for item in action_options],
+        format_func=lambda value: (
+            "Choose a record..." if not value
+            else next((label for record_id, label in action_options if record_id == value), value)
+        ),
+        key=f"crud_action_select_{entity}_{property_id}",
+    )
+    action_edit, action_delete = st.columns([1, 1])
+    with action_edit:
+        if st.button(
+            "Edit Selected", key=f"crud_edit_selected_{entity}_{property_id}",
+            use_container_width=True, disabled=not selected_action_id,
+        ):
+            st.session_state[f"crud_active_edit_{entity}_{property_id}"] = selected_action_id
+            st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+    with action_delete:
+        if st.button(
+            "Delete Selected", key=f"crud_delete_selected_{entity}_{property_id}",
+            use_container_width=True, disabled=not selected_action_id,
+        ):
+            st.session_state[f"crud_active_delete_{entity}_{property_id}"] = selected_action_id
+            st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+
+    active_edit = st.session_state.get(f"crud_active_edit_{entity}_{property_id}")
+    active_delete = st.session_state.get(f"crud_active_delete_{entity}_{property_id}")
+    active_id = active_edit or active_delete
+    if active_id:
+        matching = rows[rows[key_col].astype(str) == str(active_id)]
+        if matching.empty:
+            st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+            st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+            st.warning("The selected record is no longer available. Refresh the table and try again.")
+            return
+        record = matching.iloc[0]
+
+        if active_edit:
+            with st.container(border=True):
+                st.markdown(
+                    f'<div style="display:block;width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:10px;background:#F7F9FC;border-bottom:1px solid #DCE6EF;border-radius:6px;font-size:14px;font-weight:700;line-height:1.4;white-space:normal;overflow-wrap:anywhere;">Edit {html.escape(title.rstrip("s"))} — {html.escape(str(active_id))}</div>',
+                    unsafe_allow_html=True,
                 )
-            if active_edit == record_id:
-                with st.container(border=True):
-                    st.markdown(
-                        f'<div style="display:block;width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:10px;background:#F7F9FC;border-bottom:1px solid #DCE6EF;border-radius:6px;font-size:14px;font-weight:700;line-height:1.4;white-space:normal;overflow-wrap:anywhere;">Edit {html.escape(title.rstrip("s"))} — {html.escape(record_id)}</div>',
-                        unsafe_allow_html=True,
-                    )
-                    with st.form(f"crud_edit_{entity}_{property_id}_{record_id}"):
-                        values = {}
-                        for col in editable:
-                            name, dtype = col["name"], col["type"]
-                            label = name.replace("_", " ").title()
-                            current_value = record.get(name)
-                            if name in rels:
-                                options = get_crud_choices(entity, name, property_id)
-                                option_ids = [x[0] for x in options]
-                                current_id = str(current_value) if pd.notna(current_value) else ""
-                                if current_id and current_id not in option_ids:
-                                    options = [(current_id, current_id)] + options
-                                options = [("", "— None —")] + options
-                                idx = next((i for i, x in enumerate(options) if x[0] == current_id), 0)
-                                chosen = st.selectbox(
-                                    label, options, index=idx, format_func=lambda x: x[1],
-                                    key=f"crud_edit_{entity}_{name}_{record_id}",
-                                )
-                                values[name] = chosen[0] or None
-                            elif dtype == "boolean":
-                                values[name] = st.checkbox(
-                                    label,
-                                    value=bool(current_value) if pd.notna(current_value) else False,
-                                    key=f"crud_edit_{entity}_{name}_{record_id}",
-                                )
-                            else:
-                                default = "" if pd.isna(current_value) else str(current_value)
-                                values[name] = st.text_input(
-                                    label, value=default,
-                                    key=f"crud_edit_{entity}_{name}_{record_id}",
-                                )
-                        c1, c2 = st.columns(2)
-                        with c1:
-                            submitted = st.form_submit_button(
-                                "Save Changes", type="primary", use_container_width=True
+                with st.form(f"crud_edit_{entity}_{property_id}_{active_id}"):
+                    values = {}
+                    for col in editable:
+                        name, dtype = col["name"], col["type"]
+                        label = name.replace("_", " ").title()
+                        current_value = record.get(name)
+                        if name in rels:
+                            options = get_crud_choices(entity, name, property_id)
+                            option_ids = [x[0] for x in options]
+                            current_id = str(current_value) if pd.notna(current_value) else ""
+                            if current_id and current_id not in option_ids:
+                                options = [(current_id, current_id)] + options
+                            options = [("", "— None —")] + options
+                            idx = next((i for i, x in enumerate(options) if x[0] == current_id), 0)
+                            chosen = st.selectbox(
+                                label, options, index=idx, format_func=lambda x: x[1],
+                                key=f"crud_edit_{entity}_{name}_{active_id}",
                             )
-                        with c2:
-                            cancel = st.form_submit_button("Cancel", use_container_width=True)
-                        if submitted:
-                            try:
-                                save_crud_record(entity, values, record_id)
-                                st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
-                                clear_property_crud_cache()
-                                st.success("Record updated.")
-                                st.rerun()
-                            except DataAccessError as exc:
-                                st.error(f"Update blocked: {exc}")
-                        elif cancel:
-                            st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
-                            st.rerun()
-
-            active_delete = st.session_state.get(f"crud_active_delete_{entity}_{property_id}")
-            if active_delete == record_id:
-                with st.container(border=True):
-                    st.warning(f"Delete this {title.rstrip('s')} record? This cannot be undone.")
+                            values[name] = chosen[0] or None
+                        elif dtype == "boolean":
+                            values[name] = st.checkbox(
+                                label,
+                                value=bool(current_value) if pd.notna(current_value) else False,
+                                key=f"crud_edit_{entity}_{name}_{active_id}",
+                            )
+                        else:
+                            default = "" if pd.isna(current_value) else str(current_value)
+                            values[name] = st.text_input(
+                                label, value=default,
+                                key=f"crud_edit_{entity}_{name}_{active_id}",
+                            )
                     c1, c2 = st.columns(2)
                     with c1:
-                        if st.button(
-                            "Confirm Delete", key=f"crud_confirm_delete_{entity}_{record_id}",
-                            type="primary", use_container_width=True,
-                        ):
-                            try:
-                                delete_crud_record(entity, record_id)
-                                st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
-                                clear_property_crud_cache()
-                                st.success("Record deleted.")
-                                st.rerun()
-                            except DataAccessError as exc:
-                                st.error(f"Deletion blocked: {exc}")
+                        submitted = st.form_submit_button(
+                            "Save Changes", type="primary", use_container_width=True
+                        )
                     with c2:
-                        if st.button(
-                            "Cancel", key=f"crud_cancel_delete_{entity}_{record_id}",
-                            use_container_width=True,
-                        ):
-                            st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+                        cancel = st.form_submit_button("Cancel", use_container_width=True)
+                    if submitted:
+                        try:
+                            save_crud_record(entity, values, str(active_id))
+                            st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+                            clear_property_crud_cache()
+                            st.success("Record updated.")
                             st.rerun()
+                        except DataAccessError as exc:
+                            st.error(f"Update blocked: {exc}")
+                    elif cancel:
+                        st.session_state.pop(f"crud_active_edit_{entity}_{property_id}", None)
+                        st.rerun()
+
+        if active_delete:
+            with st.container(border=True):
+                st.warning(f"Delete this {title.rstrip('s')} record? This cannot be undone.")
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.button(
+                        "Confirm Delete", key=f"crud_confirm_delete_{entity}_{active_id}",
+                        type="primary", use_container_width=True,
+                    ):
+                        try:
+                            delete_crud_record(entity, str(active_id))
+                            st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+                            clear_property_crud_cache()
+                            st.success("Record deleted.")
+                            st.rerun()
+                        except DataAccessError as exc:
+                            st.error(f"Deletion blocked: {exc}")
+                with c2:
+                    if st.button(
+                        "Cancel", key=f"crud_cancel_delete_{entity}_{active_id}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.pop(f"crud_active_delete_{entity}_{property_id}", None)
+                        st.rerun()
 
 
 def fmt_k(v, digits=2):
