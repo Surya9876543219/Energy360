@@ -1053,60 +1053,123 @@ def render_crud_entity(entity, title, property_id):
         st.caption(f"No {title.lower()} records found.")
         return
 
-    # Keep the current native dataframe appearance. Render row-level actions
-    # in a fixed adjacent action rail so the table's native column alignment,
-    # formatting, and horizontal scrolling remain unchanged.
+    # Render each record and its actions in one shared row layout.
+    # This keeps Edit/Delete inside the same visual row instead of a detached rail.
     visible = list(rows.columns)
-    grid_key = f"crud-native-grid-{entity}-{property_id}"
-
-    display_rows = rows[visible].copy()
-    for col_name in visible:
-        display_rows[col_name] = display_rows[col_name].map(
-            lambda value: (
-                "—" if pd.isna(value)
-                else value.strftime("%Y-%m-%d") if isinstance(value, pd.Timestamp)
-                else str(value)
-            )
-        )
-
-    table_col, action_col = st.columns([0.86, 0.14], gap="small")
-    # Do not let the dataframe create its own vertical scrollbar. The action
-    # rail is rendered beside it, so both must show the same complete row set
-    # in the same viewport for row-by-row alignment.
-    table_height = 38 + 35 * len(display_rows)
-    with table_col:
-        st.dataframe(
-            display_rows,
-            hide_index=True,
-            use_container_width=True,
-            height=table_height,
-            key=grid_key,
-        )
-
+    grid_key = f"crud-inline-grid-{entity}-{property_id}"
     active_edit_key = f"crud_active_edit_{entity}_{property_id}"
     active_delete_key = f"crud_active_delete_{entity}_{property_id}"
-    with action_col:
-        st.markdown(
-            '<div style="height:38px;display:flex;align-items:center;'
-            'font-weight:600;font-size:13px;padding-left:4px;">Actions</div>',
-            unsafe_allow_html=True,
-        )
-        for row_index, (_, action_record) in enumerate(rows.iterrows()):
-            action_id = str(action_record[key_col])
-            edit_col, delete_col = st.columns(2, gap="small")
-            with edit_col:
+
+    data_width = 170
+    action_width = 54
+    st.markdown(f"""
+    <style>
+      .st-key-{grid_key} {{
+        width:100% !important; max-width:100% !important;
+        overflow-x:auto !important; overflow-y:visible !important;
+        scrollbar-width:thin !important; padding-bottom:6px !important;
+      }}
+      .st-key-{grid_key} > div,
+      .st-key-{grid_key} [data-testid="stVerticalBlock"] {{
+        width:max-content !important; min-width:100% !important;
+        max-width:none !important; gap:0 !important;
+      }}
+      .st-key-{grid_key} [data-testid="stHorizontalBlock"] {{
+        display:flex !important; flex-wrap:nowrap !important;
+        align-items:stretch !important; justify-content:flex-start !important;
+        width:max-content !important; min-width:100% !important;
+        max-width:none !important; gap:0 !important;
+        margin:0 !important; padding:0 !important;
+      }}
+      .st-key-{grid_key} [data-testid="column"] {{
+        box-sizing:border-box !important;
+        flex:0 0 {data_width}px !important;
+        width:{data_width}px !important;
+        min-width:{data_width}px !important;
+        max-width:{data_width}px !important;
+        padding:0 !important; margin:0 !important;
+      }}
+      .st-key-{grid_key} [data-testid="column"]:nth-last-child(-n+2) {{
+        flex:0 0 {action_width}px !important;
+        width:{action_width}px !important;
+        min-width:{action_width}px !important;
+        max-width:{action_width}px !important;
+        padding:0 3px !important;
+      }}
+      .st-key-{grid_key} .crud-inline-header {{
+        height:38px; box-sizing:border-box; display:flex; align-items:center;
+        padding:7px 8px; background:#F1F5F9; color:#334155;
+        border:1px solid #D9E1EA; border-right:0;
+        font-size:12px; font-weight:650; white-space:nowrap;
+        overflow:hidden; text-overflow:ellipsis;
+      }}
+      .st-key-{grid_key} .crud-inline-cell {{
+        height:38px; box-sizing:border-box; display:flex; align-items:center;
+        padding:7px 8px; background:#FFFFFF; color:#1F2937;
+        border:1px solid #E2E8F0; border-top:0; border-right:0;
+        font-size:12px; white-space:nowrap; overflow:hidden;
+        text-overflow:ellipsis;
+      }}
+      .st-key-{grid_key} [data-testid="column"]:nth-last-child(1) .crud-inline-header,
+      .st-key-{grid_key} [data-testid="column"]:nth-last-child(1) .crud-inline-cell {{
+        border-right:1px solid #D9E1EA;
+      }}
+      .st-key-{grid_key} [data-testid="stButton"] {{
+        margin:0 !important; padding:0 !important;
+      }}
+      .st-key-{grid_key} [data-testid="stButton"] button {{
+        min-height:32px !important; height:32px !important;
+        width:100% !important; min-width:0 !important;
+        padding:2px 4px !important; margin:3px 0 !important;
+        border:1px solid #D8DEE7 !important; border-radius:6px !important;
+        background:#FFFFFF !important; font-size:14px !important;
+      }}
+    </style>
+    """, unsafe_allow_html=True)
+
+    with st.container(key=grid_key):
+        header = st.columns([1] * len(visible) + [0.32, 0.32], gap=0)
+        for idx, col_name in enumerate(visible):
+            label = " ".join(part[:1].upper() + part[1:] for part in col_name.replace("_", " ").split())
+            with header[idx]:
+                st.markdown(
+                    f'<div class="crud-inline-header" title="{html.escape(label, quote=True)}">{html.escape(label)}</div>',
+                    unsafe_allow_html=True,
+                )
+        with header[-2]:
+            st.markdown('<div class="crud-inline-header">Edit</div>', unsafe_allow_html=True)
+        with header[-1]:
+            st.markdown('<div class="crud-inline-header">Delete</div>', unsafe_allow_html=True)
+
+        for _, record in rows.iterrows():
+            record_id = str(record[key_col])
+            cells = st.columns([1] * len(visible) + [0.32, 0.32], gap=0)
+            for idx, col_name in enumerate(visible):
+                raw_value = record.get(col_name)
+                if pd.isna(raw_value):
+                    display_value = "—"
+                elif isinstance(raw_value, pd.Timestamp):
+                    display_value = raw_value.strftime("%Y-%m-%d")
+                else:
+                    display_value = str(raw_value)
+                with cells[idx]:
+                    st.markdown(
+                        f'<div class="crud-inline-cell" title="{html.escape(display_value, quote=True)}">{html.escape(display_value)}</div>',
+                        unsafe_allow_html=True,
+                    )
+            with cells[-2]:
                 if st.button(
-                    "✏️", key=f"crud_edit_row_{entity}_{property_id}_{action_id}",
+                    "✏️", key=f"crud_edit_row_{entity}_{property_id}_{record_id}",
                     help="Edit this row", use_container_width=True,
                 ):
-                    st.session_state[active_edit_key] = action_id
+                    st.session_state[active_edit_key] = record_id
                     st.session_state.pop(active_delete_key, None)
-            with delete_col:
+            with cells[-1]:
                 if st.button(
-                    "🗑️", key=f"crud_delete_row_{entity}_{property_id}_{action_id}",
+                    "🗑️", key=f"crud_delete_row_{entity}_{property_id}_{record_id}",
                     help="Delete this row", use_container_width=True,
                 ):
-                    st.session_state[active_delete_key] = action_id
+                    st.session_state[active_delete_key] = record_id
                     st.session_state.pop(active_edit_key, None)
 
     active_edit = st.session_state.get(active_edit_key)
