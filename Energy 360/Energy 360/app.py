@@ -1070,7 +1070,10 @@ def render_crud_entity(entity, title, property_id):
         )
 
     table_col, action_col = st.columns([0.86, 0.14], gap="small")
-    table_height = min(420, 38 + 35 * len(display_rows))
+    # Do not let the dataframe create its own vertical scrollbar. The action
+    # rail is rendered beside it, so both must show the same complete row set
+    # in the same viewport for row-by-row alignment.
+    table_height = 38 + 35 * len(display_rows)
     with table_col:
         st.dataframe(
             display_rows,
@@ -1094,14 +1097,14 @@ def render_crud_entity(entity, title, property_id):
             with edit_col:
                 if st.button(
                     "✏️", key=f"crud_edit_row_{entity}_{property_id}_{action_id}",
-                    help="Edit this row", use_container_width=True,
+                    help="Edit this row", use_container_width=True, size="small",
                 ):
                     st.session_state[active_edit_key] = action_id
                     st.session_state.pop(active_delete_key, None)
             with delete_col:
                 if st.button(
                     "🗑️", key=f"crud_delete_row_{entity}_{property_id}_{action_id}",
-                    help="Delete this row", use_container_width=True,
+                    help="Delete this row", use_container_width=True, size="small",
                 ):
                     st.session_state[active_delete_key] = action_id
                     st.session_state.pop(active_edit_key, None)
