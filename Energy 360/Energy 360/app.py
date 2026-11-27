@@ -1097,14 +1097,14 @@ def render_crud_entity(entity, title, property_id):
             with edit_col:
                 if st.button(
                     "✏️", key=f"crud_edit_row_{entity}_{property_id}_{action_id}",
-                    help="Edit this row", use_container_width=True, size="small",
+                    help="Edit this row", use_container_width=True,
                 ):
                     st.session_state[active_edit_key] = action_id
                     st.session_state.pop(active_delete_key, None)
             with delete_col:
                 if st.button(
                     "🗑️", key=f"crud_delete_row_{entity}_{property_id}_{action_id}",
-                    help="Delete this row", use_container_width=True, size="small",
+                    help="Delete this row", use_container_width=True,
                 ):
                     st.session_state[active_delete_key] = action_id
                     st.session_state.pop(active_edit_key, None)
